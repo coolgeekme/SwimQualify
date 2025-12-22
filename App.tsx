@@ -84,6 +84,7 @@ const App: React.FC = () => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
   
   // Management State
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -370,6 +371,34 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
+  const handleRegisterSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setRegisterError(null);
+    const formData = new FormData(e.currentTarget);
+    const name = (formData.get('name') as string).trim();
+    const email = (formData.get('email') as string).toLowerCase().trim();
+    const password = formData.get('password') as string;
+    const role = formData.get('role') as Role;
+
+    if (users.some(u => u.email?.toLowerCase() === email)) {
+      setRegisterError('An account with this email already exists.');
+      return;
+    }
+
+    const newUser: User = {
+      id: `u${Date.now()}`,
+      name,
+      email,
+      password,
+      role,
+      teamId: 'team1'
+    };
+
+    setUsers(prev => [...prev, newUser]);
+    setCurrentUser(newUser);
+    handleTabChange(role === Role.COACH ? 'roster' : 'dashboard');
+  };
+
   const handleUpdateEvent = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingEvent) return;
@@ -567,11 +596,43 @@ const App: React.FC = () => {
             {loginError && <p className="text-red-500 text-xs font-bold">{loginError}</p>}
             <button type="submit" className="w-full py-4 rounded-xl font-black uppercase bg-blue-600 text-white shadow-xl hover:bg-blue-500 transition-all">Log In</button>
           </form>
-          <div className="mt-8 pt-6 border-t border-slate-700/50">
-            <p className="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest text-center">Stable Session Access</p>
+          <div className="mt-6 pt-6 border-t border-slate-700/50">
+            <p className="text-sm text-slate-400">Don't have an account? <button onClick={() => { setCurrentScreen('register'); setLoginError(null); }} className="text-blue-500 font-bold hover:text-blue-400">Register</button></p>
+          </div>
+          <div className="mt-6 pt-6 border-t border-slate-700/50">
+            <p className="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest text-center">Demo Accounts</p>
             <div className="grid grid-cols-2 gap-2">
               {['alex@team.com', 'maria@parent.com', 'sarah@team.com', 'admin@swim.com'].map(e => <button key={e} onClick={() => quickLogin(e)} className="bg-slate-900 hover:bg-blue-900/40 border border-slate-700 rounded-lg p-2 text-[9px] font-black uppercase text-slate-500 truncate transition-all">{e.split('@')[0]}</button>)}
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (currentScreen === 'register') return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-slate-100">
+      <div className="w-full max-w-md text-center">
+        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl"><UserPlus className="text-white w-10 h-10" /></div>
+        <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-10">Create Account</h1>
+        <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl">
+          <form onSubmit={handleRegisterSubmit} className="space-y-5">
+            <input name="name" type="text" placeholder="Your Name" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
+            <input name="email" type="email" placeholder="email@example.com" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
+            <input name="password" type="password" placeholder="Password" required minLength={6} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-left">I am a...</label>
+              <select name="role" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none">
+                <option value={Role.SWIMMER}>Swimmer</option>
+                <option value={Role.PARENT}>Parent</option>
+                <option value={Role.COACH}>Coach</option>
+              </select>
+            </div>
+            {registerError && <p className="text-red-500 text-xs font-bold">{registerError}</p>}
+            <button type="submit" className="w-full py-4 rounded-xl font-black uppercase bg-blue-600 text-white shadow-xl hover:bg-blue-500 transition-all">Create Account</button>
+          </form>
+          <div className="mt-6 pt-6 border-t border-slate-700/50">
+            <p className="text-sm text-slate-400">Already have an account? <button onClick={() => { setCurrentScreen('login'); setRegisterError(null); }} className="text-blue-500 font-bold hover:text-blue-400">Log In</button></p>
           </div>
         </div>
       </div>
