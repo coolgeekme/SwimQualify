@@ -5,6 +5,7 @@ packages = ["unzip"]
 
 [agent]
 expertMode = true
+integrations = ["perplexity_v0:1.0.0", "javascript_openai_ai_integrations:2.0.0"]
 
 [workflows]
 runButton = "Project"
@@ -31,6 +32,10 @@ waitForPort = 5000
 outputType = "webview"
 
 [[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
@@ -38,3 +43,8 @@ externalPort = 80
 deploymentTarget = "static"
 build = ["npm", "run", "build"]
 publicDir = "dist"
+
+[userenv]
+
+[userenv.shared]
+INTERNAL_API_TOKEN = "6accaeddd22e2c5a61377bfbb85ee5c5f5b7dbdd35787e3cb0cc123ee4c262b5"

@@ -27,3 +27,18 @@ export const getAgeGroup = (dob: string): string => {
   if (age <= 16) return '15-16';
   return '17-18';
 };
+
+export const getAgeGroupAtDate = (dob: string, dateStr: string): string => {
+  const birthDate = new Date(dob);
+  const referenceDate = new Date(dateStr);
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const monthDiff = referenceDate.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && referenceDate.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  if (age <= 10) return '10U';
+  if (age <= 12) return '11-12';
+  if (age <= 14) return '13-14';
+  if (age <= 16) return '15-16';
+  return '17-18';
+};

@@ -6,11 +6,10 @@ import {
   CheckCircle2, MapPin, Key, Upload, Camera, Trophy, Home, Users, Settings, LogOut,
   Zap, Brain, Calendar, ShieldCheck, User as UserIcon, Heart, Trash2, Edit3, FileText, X, Filter, Ruler, Info, Save, CheckSquare, Square, Baby, Lightbulb, Activity, Clock, Award
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import Layout from './components/Layout';
 import DashboardCard from './components/DashboardCard';
 import { EVENTS, MOCK_STANDARDS, MOCK_TIMES, MOCK_ATHLETES, MOCK_USERS } from './constants';
-import { formatTime, calculatePace, parseTime, getAgeGroup } from './utils/time';
+import { formatTime, calculatePace, parseTime, getAgeGroup, getAgeGroupAtDate } from './utils/time';
 import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { User, Role, Athlete, TimeEntry, Event, Stroke, QualifyingStandard, WeeklyCheckIn, Course } from './types';
 
@@ -35,6 +34,7 @@ const STORAGE_KEYS = {
   EVENTS: 'sq_prod_events_v3',
   AUTH: 'sq_prod_session_v3'
 };
+
 
 const App: React.FC = () => {
   // Persistence Initialization
@@ -174,19 +174,25 @@ const App: React.FC = () => {
         };
       });
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `You are a high-performance swim coach. Analyze these competition results for ${currentAthlete.name} (${currentAthlete.ageGroup} ${currentAthlete.gender}) and provide specific technical focus areas for each stroke they swim. Return ONLY raw JSON.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { thinkingConfig: { thinkingBudget: 0 } }
+      const response = await fetch('/api/ai/stroke-insights', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Session': JSON.stringify(currentUser)
+        },
+        body: JSON.stringify({
+          athleteName: currentAthlete.name,
+          ageGroup: currentAthlete.ageGroup,
+          gender: currentAthlete.gender,
+          timeData
+        })
       });
 
-      const text = response.text || "";
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) {
-        setStrokeInsights(JSON.parse(jsonMatch[0]));
+      if (!response.ok) throw new Error('Failed to generate insights');
+      
+      const data = await response.json();
+      if (data.insights) {
+        setStrokeInsights(data.insights);
       }
     } catch (err) {
       console.error(err);
@@ -202,25 +208,27 @@ const App: React.FC = () => {
     setResearchResults([]);
     setGroundingLinks([]);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const base64Data = uploadPreview.split(',')[1];
-      const prompt = `Extract ALL swim qualifying standards (cut times) from this document. 
-      Return the results as a JSON array of objects.
-      Each object MUST have: "name" (e.g. "50 Free"), "distance" (number), "stroke" (one of: "Freestyle", "Backstroke", "Breaststroke", "Butterfly", "Individual Medley"), "regionalTimeStr" (e.g. "28.45"), "stateTimeStr" (e.g. "27.10"), "ageGroup", "gender", "course" ("Yards" or "Meters").
-      If a specific cut is missing, use null.
-      Return ONLY the raw JSON array. No conversational text.`;
       
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: { parts: [{ text: prompt }, { inlineData: { mimeType: uploadMimeType || 'image/png', data: base64Data } }] },
-        config: { thinkingConfig: { thinkingBudget: 0 } }
+      const response = await fetch('/api/ai/analyze-document', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Session': JSON.stringify(currentUser)
+        },
+        body: JSON.stringify({
+          imageData: base64Data,
+          mimeType: uploadMimeType || 'image/png'
+        })
       });
-      const text = response.text || "";
-      const jsonMatch = text.match(/\[.*\]/s);
-      if (jsonMatch) {
-        setResearchResults(JSON.parse(jsonMatch[0]));
+
+      if (!response.ok) throw new Error('Analysis failed');
+      
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        setResearchResults(data.results);
       } else {
-        alert("No standards found in document. Please ensure the text is clear.");
+        alert(data.error || "No standards found in document. Please ensure the text is clear.");
       }
     } catch (err: any) {
       console.error(err);
@@ -237,36 +245,32 @@ const App: React.FC = () => {
     setResearchResults([]);
     setGroundingLinks([]);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Find the 2024-2025 ${formData.get('ageGroup')} ${formData.get('gender')} swim qualifying standards for ${formData.get('stateLocation')} in ${formData.get('course')} course.
-      For each event (e.g. 50 Free, 100 Back), find BOTH the Regional/local level cut AND the State level cut.
-      Return results as a JSON array of objects.
-      Schema: [{"name": string, "distance": number, "stroke": string, "regionalTimeStr": string, "stateTimeStr": string, "ageGroup": string, "gender": string, "course": string}].
-      If a cut is not found, use null for that property.
-      Return ONLY the JSON.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { tools: [{ googleSearch: {} }], thinkingConfig: { thinkingBudget: 0 } },
+      const response = await fetch('/api/ai/research-standards', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Session': JSON.stringify(currentUser)
+        },
+        body: JSON.stringify({
+          ageGroup: formData.get('ageGroup'),
+          gender: formData.get('gender'),
+          stateLocation: formData.get('stateLocation'),
+          course: formData.get('course')
+        })
       });
+
+      if (!response.ok) throw new Error('Search failed');
       
-      const text = response.text || "";
-      const jsonMatch = text.match(/\[.*\]/s);
+      const data = await response.json();
       
-      if (jsonMatch) {
-        setResearchResults(JSON.parse(jsonMatch[0]));
+      if (data.results && data.results.length > 0) {
+        setResearchResults(data.results);
       } else {
-        alert("Could not extract specific times. Please check sources or try a different location.");
+        alert(data.error || "Could not extract specific times. Please check sources or try a different location.");
       }
 
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (chunks) {
-        const links = chunks
-          .filter(c => c.web)
-          .map(c => ({ title: c.web?.title || 'Source', uri: c.web?.uri || '' }))
-          .filter(l => l.uri);
-        setGroundingLinks(links);
+      if (data.citations && data.citations.length > 0) {
+        setGroundingLinks(data.citations);
       }
     } catch (err: any) {
       console.error(err);
@@ -475,6 +479,27 @@ const App: React.FC = () => {
     alert("Event created. Use Explorer or Edit to add cut times.");
   };
 
+  const handleAddTime = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedEventId || !currentAthlete) return;
+    const formData = new FormData(e.currentTarget);
+    const timeStr = formData.get('time') as string;
+    const dateStr = formData.get('date') as string || new Date().toISOString().split('T')[0];
+    
+    const newTime: TimeEntry = {
+      id: `t${Date.now()}`,
+      athleteId: currentAthlete.id,
+      eventId: selectedEventId,
+      timeSeconds: parseTime(timeStr),
+      date: dateStr,
+      ageGroupAtTime: currentAthlete.ageGroup,
+      course: events.find(e => e.id === selectedEventId)?.course || Course.YARDS
+    };
+    
+    setTimes(prev => [...prev, newTime]);
+    setCurrentScreen('event-detail');
+  };
+
   const renderDashboard = () => {
     if (!currentAthlete) return <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200"><Users className="w-12 h-12 text-slate-300 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p><button onClick={() => handleTabChange('roster')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Choose Swimmer</button></div>;
     const selectedEvents = events.filter(e => currentAthlete.selectedEventIds.includes(e.id));
@@ -576,7 +601,7 @@ const App: React.FC = () => {
       case 'event-detail': return selectedEventId && currentAthlete ? <div className="space-y-6 pb-10"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-start mb-8"><div><h3 className="text-3xl font-black text-slate-900 italic uppercase">{events.find(e => e.id === selectedEventId)?.name}</h3><div className="flex items-center space-x-2 mt-1"><p className="text-sm font-bold text-slate-400 uppercase">{events.find(e => e.id === selectedEventId)?.stroke}</p></div></div><button onClick={() => setCurrentScreen('add-time')} className="bg-blue-600 text-white p-3 rounded-xl shadow-lg hover:bg-blue-500 transition-all"><Plus className="w-6 h-6" /></button></div><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><RechartsLine data={times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(t => ({ date: new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), time: t.timeSeconds }))}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="date" tick={{fontSize: 9, fill: '#94a3b8'}} axisLine={false} tickLine={false} /><YAxis hide domain={['auto', 'auto']} /><Tooltip formatter={(v: number) => [formatTime(v), 'Result']} /><Line type="monotone" dataKey="time" stroke="#2563eb" strokeWidth={4} dot={{r: 5, fill: '#2563eb'}} /></RechartsLine></ResponsiveContainer></div></div></div> : null;
       case 'manage-swimmer-events': return currentAthlete ? <div className="space-y-6"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="text-xl font-black text-slate-900 italic uppercase mb-2">Track Your Events</h3><p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6">Age Group: {currentAthlete.ageGroup}</p><div className="space-y-3">{events.filter(e => e.ageGroup === currentAthlete.ageGroup).map(e => <div key={e.id} onClick={() => handleToggleEventSelection(e.id)} className={`p-4 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${currentAthlete.selectedEventIds.includes(e.id) ? 'border-blue-600 bg-blue-50' : 'border-slate-100 bg-white'}`}><div><p className="font-bold text-sm text-slate-800">{e.name}</p></div>{currentAthlete.selectedEventIds.includes(e.id) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5 text-slate-300" />}</div>)}</div></div></div> : null;
       case 'focus': return <div className="space-y-6 pb-20"><div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl border border-slate-800 relative overflow-hidden"><Sparkles className="absolute -right-2 -top-2 w-24 h-24 text-blue-500/10" /><div className="flex items-center justify-between mb-6 relative z-10"><div className="flex items-center space-x-3"><div className="bg-blue-600 p-2 rounded-lg"><Lightbulb className="w-5 h-5 text-white" /></div><div><h3 className="text-lg font-black italic uppercase">AI Technique Coach</h3></div></div><button onClick={handleGenerateStrokeInsights} disabled={isGeneratingInsights} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-all">{isGeneratingInsights ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</button></div></div></div>;
-      case 'roster': return <div className="space-y-4">{visibleAthletes.map(a => <div key={a.id} onClick={() => { setSelectedAthleteId(a.id); setCurrentScreen('dashboard'); setActiveTab('dashboard'); }} className={`bg-white p-5 rounded-2xl border ${selectedAthleteId === a.id ? 'border-blue-600 shadow-blue-50' : 'border-slate-100'} shadow-sm flex justify-between items-center cursor-pointer hover:border-blue-200 transition-all group`}><div className="flex items-center space-x-4"><div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors"><UserIcon className="w-5 h-5 text-slate-400 group-hover:text-blue-600" /></div><div><p className="font-black text-slate-800 uppercase italic leading-none mb-1">{a.name}</p><p className="text-[10px] text-slate-400 font-bold uppercase">{a.ageGroup} • {a.gender}</p></div></div><ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" /></div>)}</div>;
+      case 'roster': return <div className="space-y-4">{(currentUser?.role === Role.PARENT || currentUser?.role === Role.COACH || currentUser?.role === Role.ADMIN) && <button onClick={() => setCurrentScreen('add-athlete')} className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center space-x-2 hover:bg-blue-500 transition-all shadow-lg"><Plus className="w-5 h-5" /><span>Add Swimmer</span></button>}{visibleAthletes.length === 0 ? <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200"><Users className="w-12 h-12 text-slate-300 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-2 uppercase text-xs">No swimmers yet</p><p className="text-slate-400 text-sm">Click the button above to add your first swimmer</p></div> : visibleAthletes.map(a => <div key={a.id} onClick={() => { setSelectedAthleteId(a.id); setCurrentScreen('dashboard'); setActiveTab('dashboard'); }} className={`bg-white p-5 rounded-2xl border ${selectedAthleteId === a.id ? 'border-blue-600 shadow-blue-50' : 'border-slate-100'} shadow-sm flex justify-between items-center cursor-pointer hover:border-blue-200 transition-all group`}><div className="flex items-center space-x-4"><div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors"><UserIcon className="w-5 h-5 text-slate-400 group-hover:text-blue-600" /></div><div><p className="font-black text-slate-800 uppercase italic leading-none mb-1">{a.name}</p><p className="text-[10px] text-slate-400 font-bold uppercase">{a.ageGroup} • {a.gender}</p></div></div><ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" /></div>)}</div>;
       case 'admin': return renderAdmin();
       case 'add-time': return selectedEventId && currentAthlete ? <div className="max-w-md mx-auto space-y-6"><button onClick={() => setCurrentScreen('event-detail')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6"><div className="border-b border-slate-100 pb-6 mb-2"><div className="flex items-center space-x-3 mb-2"><div className="bg-blue-600 p-2 rounded-lg"><Clock className="w-5 h-5 text-white" /></div><h3 className="text-2xl font-black text-slate-900 italic uppercase">Add Result</h3></div><div className="flex items-center space-x-2 mt-1"><span className="font-black text-slate-800 text-sm uppercase">{events.find(e => e.id === selectedEventId)?.name}</span><span className="w-1 h-1 bg-slate-200 rounded-full"></span><span className="text-xs font-bold text-blue-600 uppercase tracking-widest">{currentAthlete.name}</span></div></div><form onSubmit={handleAddTime} className="space-y-6"><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Time (mm:ss.xx)</label><input name="time" type="text" placeholder="1:05.42" required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl">Save Record</button></form></div></div> : null;
       case 'add-athlete': return <div className="max-w-md mx-auto"><button onClick={() => setCurrentScreen('roster')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800 mb-6"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6"><h3 className="text-2xl font-black text-slate-900 italic uppercase">New Swimmer</h3><form onSubmit={handleAddAthlete} className="space-y-6"><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Name</label><input name="name" type="text" required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Birth Date</label><input name="dob" type="date" required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Gender</label><select name="gender" required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600"><option value="M">Male</option><option value="F">Female</option></select></div><button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl">Add Athlete</button></form></div></div>;

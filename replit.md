@@ -50,23 +50,39 @@ The app supports four user roles with different navigation and capabilities:
 - Trend forecasting based on improvement rate over time
 
 ### AI Integration
-- Google Generative AI (@google/genai) integration for research features
-- API key configured via environment variable `GEMINI_API_KEY`
-- Used for researching qualifying standards and providing insights
+- **OpenAI** (via Replit AI Integrations): Used for AI Technique Coach and document analysis
+- **Perplexity AI**: Used for real-time qualifying times research with internet access
+- All AI requests are handled server-side to keep API keys secure
+- Security measures:
+  - Rate limiting: 10 requests per IP per minute
+  - Session validation: Requires logged-in user context
+  - API keys never exposed to frontend
+
+### Backend Server
+- Express.js API server running on port 3001
+- Endpoints:
+  - `/api/ai/stroke-insights`: AI Technique Coach analysis
+  - `/api/ai/analyze-document`: Document OCR and parsing for qualifying standards
+  - `/api/ai/research-standards`: Real-time qualifying times research using Perplexity
 
 ## External Dependencies
 
 ### Third-Party Libraries
-- **@google/genai**: Google's Generative AI SDK for AI-powered research features
+- **openai**: OpenAI SDK for AI-powered features (server-side)
+- **express**: API server framework
 - **recharts**: Charting library for performance visualization
 - **lucide-react**: Icon component library
 
 ### Environment Configuration
-- `GEMINI_API_KEY`: Required for AI research functionality, loaded via Vite's env handling
+- `AI_INTEGRATIONS_OPENAI_API_KEY`: OpenAI API key (managed by Replit)
+- `AI_INTEGRATIONS_OPENAI_BASE_URL`: OpenAI base URL (managed by Replit)
+- `PERPLEXITY_API_KEY`: Required for real-time qualifying times research
 
 ### Browser APIs
 - **localStorage**: Primary data persistence mechanism
 - **Camera**: Permission requested per metadata.json for potential future OCR/time capture features
 
-### No Backend Required
-The current architecture is entirely client-side with no server dependencies. All data persists in browser localStorage. Future iterations may introduce a backend API following the specification in `docs/specification.md`.
+### Architecture
+- Frontend: React app served by Vite on port 5000
+- Backend: Express API server on port 3001
+- Vite proxies `/api` requests to the backend server
