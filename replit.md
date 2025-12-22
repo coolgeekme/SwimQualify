@@ -23,12 +23,17 @@ Preferred communication style: Simple, everyday language.
 - **Data Categories**: Users, Athletes, Times, Standards, Events, Auth sessions
 - **Mock Data**: Pre-seeded constants provide initial demo data for all entity types
 
+### Authentication
+- **Login**: Email/password authentication with demo account quick-login buttons
+- **Registration**: Visitors can create accounts as Swimmer, Parent, or Coach
+- **Session Persistence**: Current user stored in localStorage for session continuity
+
 ### Role-Based Access Control
 The app supports four user roles with different navigation and capabilities:
 - **Swimmer**: Personal dashboard and focus tracking
 - **Parent**: View linked children's progress, team roster access, admin features
 - **Coach**: Team roster management, focus setting, admin capabilities
-- **Admin**: Full access including CRUD for qualifying standards
+- **Admin**: Full access including CRUD for qualifying standards (demo account only)
 
 ### Core Domain Model
 - **Users**: Authentication identity with role assignment
