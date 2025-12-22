@@ -1,0 +1,8 @@
+
+{
+  "name": "SwimQualify MVP",
+  "description": "A high-performance companion for competitive youth swimmers to track progress, visualize qualifying cuts, and manage season goals with data-driven insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
