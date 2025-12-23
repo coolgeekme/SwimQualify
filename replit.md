@@ -19,14 +19,18 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: React useState with localStorage persistence for data storage
 
 ### Data Persistence Strategy
-- **Current Implementation**: Browser localStorage with versioned keys (e.g., `sq_prod_users_v3`)
-- **Data Categories**: Users, Athletes, Times, Standards, Events, Auth sessions
-- **Mock Data**: Pre-seeded constants provide initial demo data for all entity types
+- **User Accounts**: PostgreSQL database with Drizzle ORM for permanent storage
+- **Other Data**: Browser localStorage with versioned keys (e.g., `sq_prod_athletes_v3`)
+- **Data Categories**: Athletes, Times, Standards, Events stored in localStorage; Users stored in database
+- **Mock Data**: Pre-seeded constants provide demo accounts for quick testing
+- **Database**: Unified PostgreSQL database used for both development and production
 
 ### Authentication
-- **Login**: Email/password authentication with demo account quick-login buttons
-- **Registration**: Visitors can create accounts as Swimmer, Parent, or Coach
+- **Login**: Email/password authentication with bcrypt password hashing
+- **Registration**: New accounts stored in PostgreSQL database with secure password hashing
+- **Demo Accounts**: Quick-login buttons for testing (Alex, Sarah, Maria, Admin)
 - **Session Persistence**: Current user stored in localStorage for session continuity
+- **API Endpoints**: `/api/auth/register`, `/api/auth/login`, `/api/auth/users`
 
 ### Role-Based Access Control
 The app supports four user roles with different navigation and capabilities:
@@ -60,7 +64,11 @@ The app supports four user roles with different navigation and capabilities:
 
 ### Backend Server
 - Express.js API server running on port 3001
+- **Database**: PostgreSQL with Drizzle ORM
 - Endpoints:
+  - `/api/auth/register`: User registration with bcrypt password hashing
+  - `/api/auth/login`: User login with password verification
+  - `/api/auth/users`: List all registered users (for frontend sync)
   - `/api/ai/stroke-insights`: AI Technique Coach analysis
   - `/api/ai/analyze-document`: Document OCR and parsing for qualifying standards
   - `/api/ai/research-standards`: Real-time qualifying times research using Perplexity
@@ -74,13 +82,21 @@ The app supports four user roles with different navigation and capabilities:
 - **lucide-react**: Icon component library
 
 ### Environment Configuration
+- `DATABASE_URL`: PostgreSQL connection string (managed by Replit)
 - `AI_INTEGRATIONS_OPENAI_API_KEY`: OpenAI API key (managed by Replit)
 - `AI_INTEGRATIONS_OPENAI_BASE_URL`: OpenAI base URL (managed by Replit)
 - `PERPLEXITY_API_KEY`: Required for real-time qualifying times research
 
 ### Browser APIs
-- **localStorage**: Primary data persistence mechanism
+- **localStorage**: Data persistence for athletes, times, events, standards, and sessions
 - **Camera**: Permission requested per metadata.json for potential future OCR/time capture features
+
+### Recent Changes (December 2025)
+- Migrated user accounts from localStorage to PostgreSQL database for permanent persistence
+- Added bcrypt password hashing for secure password storage
+- Created auth API endpoints for registration and login
+- Configured unified database for development and production environments
+- Users now only need to register once - accounts persist across preview reloads
 
 ### Architecture
 - Frontend: React app served by Vite on port 5000

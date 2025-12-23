@@ -43,10 +43,39 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : null;
   });
   
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-    return saved ? JSON.parse(saved) : MOCK_USERS;
-  });
+  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
+  // Load users from database on mount
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await fetch('/api/auth/users');
+        if (response.ok) {
+          const dbUsers = await response.json();
+          // Merge DB users with mock users (keeping mock for demo accounts)
+          const mergedUsers = [...MOCK_USERS];
+          for (const dbUser of dbUsers) {
+            if (!mergedUsers.some(u => u.email?.toLowerCase() === dbUser.email?.toLowerCase())) {
+              mergedUsers.push({
+                id: dbUser.id,
+                name: dbUser.name,
+                email: dbUser.email,
+                role: dbUser.role as Role,
+                teamId: dbUser.teamId
+              });
+            }
+          }
+          setUsers(mergedUsers);
+        }
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+    loadUsers();
+  }, []);
 
   const [times, setTimes] = useState<TimeEntry[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TIMES);
@@ -68,8 +97,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : EVENTS;
   });
 
-  // Effects for Persistence
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); }, [users]);
+  // Effects for Persistence (users now in database, not localStorage)
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ATHLETES, JSON.stringify(athletes)); }, [athletes]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.TIMES, JSON.stringify(times)); }, [times]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.STANDARDS, JSON.stringify(standards)); }, [standards]);
@@ -348,17 +376,47 @@ const App: React.FC = () => {
     alert("Database updated for all relevant profiles.");
   };
 
-  const handleLoginSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setLoginError(null);
     const formData = new FormData(e.currentTarget);
     const email = (formData.get('email') as string).toLowerCase().trim();
     const password = formData.get('password') as string;
     
-    const user = users.find(u => u.email?.toLowerCase() === email && u.password === password);
-    if (user) {
-      setCurrentUser(user);
-      handleTabChange(user.role === Role.COACH || user.role === Role.ADMIN ? 'roster' : 'dashboard');
-    } else { setLoginError('Invalid credentials.'); }
+    // First try mock users for demo accounts
+    const mockUser = MOCK_USERS.find(u => u.email?.toLowerCase() === email && u.password === password);
+    if (mockUser) {
+      setCurrentUser(mockUser);
+      handleTabChange(mockUser.role === Role.COACH || mockUser.role === Role.ADMIN ? 'roster' : 'dashboard');
+      return;
+    }
+
+    // Try database login
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        const userWithRole: User = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role as Role,
+          teamId: user.teamId
+        };
+        setCurrentUser(userWithRole);
+        handleTabChange(userWithRole.role === Role.COACH || userWithRole.role === Role.ADMIN ? 'roster' : 'dashboard');
+      } else {
+        const error = await response.json();
+        setLoginError(error.error || 'Invalid credentials.');
+      }
+    } catch (err) {
+      setLoginError('Login failed. Please try again.');
+    }
   };
 
   const quickLogin = (email: string) => {
@@ -375,7 +433,7 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleRegisterSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setRegisterError(null);
     const formData = new FormData(e.currentTarget);
@@ -384,23 +442,38 @@ const App: React.FC = () => {
     const password = formData.get('password') as string;
     const role = formData.get('role') as Role;
 
-    if (users.some(u => u.email?.toLowerCase() === email)) {
+    // Check mock users first
+    if (MOCK_USERS.some(u => u.email?.toLowerCase() === email)) {
       setRegisterError('An account with this email already exists.');
       return;
     }
 
-    const newUser: User = {
-      id: `u${Date.now()}`,
-      name,
-      email,
-      password,
-      role,
-      teamId: 'team1'
-    };
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role })
+      });
 
-    setUsers(prev => [...prev, newUser]);
-    setCurrentUser(newUser);
-    handleTabChange(role === Role.COACH ? 'roster' : 'dashboard');
+      if (response.ok) {
+        const user = await response.json();
+        const newUser: User = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role as Role,
+          teamId: user.teamId
+        };
+        setUsers(prev => [...prev, newUser]);
+        setCurrentUser(newUser);
+        handleTabChange(role === Role.COACH ? 'roster' : 'dashboard');
+      } else {
+        const error = await response.json();
+        setRegisterError(error.error || 'Registration failed.');
+      }
+    } catch (err) {
+      setRegisterError('Registration failed. Please try again.');
+    }
   };
 
   const handleUpdateEvent = (e: React.FormEvent<HTMLFormElement>) => {

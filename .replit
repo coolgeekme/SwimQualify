@@ -1,11 +1,11 @@
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "postgresql-16"]
 [nix]
 channel = "stable-25_05"
 packages = ["unzip"]
 
 [agent]
 expertMode = true
-integrations = ["perplexity_v0:1.0.0", "javascript_openai_ai_integrations:2.0.0"]
+integrations = ["perplexity_v0:1.0.0", "javascript_openai_ai_integrations:2.0.0", "javascript_database:1.0.0"]
 
 [workflows]
 runButton = "Project"
@@ -40,9 +40,10 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "static"
+deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
 publicDir = "dist"
+run = ["npm", "run", "server"]
 
 [userenv]
 

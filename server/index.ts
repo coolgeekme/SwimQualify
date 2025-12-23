@@ -1,5 +1,9 @@
 import express from 'express';
 import OpenAI from 'openai';
+import bcrypt from 'bcrypt';
+import { storage } from './storage';
+
+const SALT_ROUNDS = 10;
 
 const requiredEnvVars = ['AI_INTEGRATIONS_OPENAI_API_KEY', 'AI_INTEGRATIONS_OPENAI_BASE_URL'];
 for (const envVar of requiredEnvVars) {
@@ -11,6 +15,93 @@ for (const envVar of requiredEnvVars) {
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
+
+// Auth API endpoints
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    const existingUser = await storage.getUserByEmail(normalizedEmail);
+    if (existingUser) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    
+    const user = await storage.createUser({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      role,
+      teamId: 'team1'
+    });
+
+    res.json({
+      id: user.id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      teamId: user.teamId
+    });
+  } catch (err: any) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await storage.getUserByEmail(normalizedEmail);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    res.json({
+      id: user.id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      teamId: user.teamId
+    });
+  } catch (err: any) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+app.get('/api/auth/users', async (req, res) => {
+  try {
+    const allUsers = await storage.getAllUsers();
+    res.json(allUsers.map(u => ({
+      id: u.id.toString(),
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      teamId: u.teamId
+    })));
+  } catch (err: any) {
+    console.error('Get users error:', err);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
