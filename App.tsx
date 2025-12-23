@@ -311,10 +311,21 @@ const App: React.FC = () => {
   const syncSingleResult = (res: ResearchResult) => {
     if (!res.name) return;
 
+    const normalizeCourse = (c: any): Course => {
+      if (c === Course.YARDS || c === Course.METERS) return c;
+      if (typeof c === 'string') {
+        const lower = c.toLowerCase();
+        if (lower.includes('meter') || lower === 'lcm') return Course.METERS;
+      }
+      return Course.YARDS;
+    };
+
+    const normalizedCourse = normalizeCourse(res.course);
+
     setEvents(prevEvents => {
       let existingEvent = prevEvents.find(e => 
         e.name.toLowerCase() === res.name.toLowerCase() && 
-        e.course === (res.course || Course.YARDS) &&
+        e.course === normalizedCourse &&
         e.ageGroup === (res.ageGroup || '11-12')
       );
 
@@ -329,7 +340,7 @@ const App: React.FC = () => {
           name: res.name,
           distance: res.distance || 50,
           stroke: res.stroke || Stroke.FREE,
-          course: res.course || Course.YARDS,
+          course: normalizedCourse,
           ageGroup: res.ageGroup || '11-12'
         };
         updatedEvents.push(newEvent);
@@ -337,9 +348,9 @@ const App: React.FC = () => {
       }
 
       setStandards(prevStandards => {
-        const genderVal: 'M' | 'F' = (res.gender === 'Women' || res.gender === 'F' ? 'F' : 'M');
+        const genderVal: 'M' | 'F' = (res.gender === 'Women' || res.gender === 'F' || res.gender === 'Girls' ? 'F' : 'M');
         const ageVal = res.ageGroup || '11-12';
-        const courseVal = res.course || Course.YARDS;
+        const courseVal = normalizedCourse;
 
         let nextStandards = prevStandards.filter(s => 
           !(s.eventId === eventId && s.gender === genderVal && s.ageGroup === ageVal && s.course === courseVal)
@@ -622,6 +633,96 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {adminMode === 'search' && (
+            <div className="space-y-6">
+              <form onSubmit={handleResearchStandards} className="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Search className="w-4 h-4 text-blue-500" />
+                  <p className="text-[10px] font-black uppercase text-slate-400">AI Research Standards</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <select name="ageGroup" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                    <option value="10U">10U</option>
+                    <option value="11-12">11-12</option>
+                    <option value="13-14">13-14</option>
+                    <option value="15-16">15-16</option>
+                    <option value="17-18">17-18</option>
+                  </select>
+                  <select name="gender" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                    <option value="M">Boys</option>
+                    <option value="F">Girls</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input name="stateLocation" type="text" placeholder="State (e.g. Texas, California)" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white placeholder:text-slate-600" />
+                  <select name="course" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                    <option value={Course.YARDS}>SCY (Yards)</option>
+                    <option value={Course.METERS}>LCM (Meters)</option>
+                  </select>
+                </div>
+                <button type="submit" disabled={isResearching} className="w-full bg-blue-600 py-3 rounded-lg font-black uppercase text-[10px] flex items-center justify-center hover:bg-blue-500 transition-all disabled:opacity-50">
+                  {isResearching ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Searching...</> : <><Search className="w-4 h-4 mr-2" /> Research Standards</>}
+                </button>
+              </form>
+
+              {groundingLinks.length > 0 && (
+                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                  <p className="text-[9px] font-black uppercase text-slate-500 mb-2">Sources</p>
+                  <div className="flex flex-wrap gap-2">
+                    {groundingLinks.map((link, i) => (
+                      <a key={i} href={link.uri} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-[10px] text-blue-400 hover:text-blue-300">
+                        <ExternalLink className="w-3 h-3" />
+                        <span>{link.title}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {researchResults.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
+                    <button onClick={() => researchResults.forEach(res => syncSingleResult(res))} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1">
+                      <Save className="w-3 h-3" />
+                      <span>Apply All</span>
+                    </button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                    {researchResults.map((res, i) => (
+                      <div key={i} className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 flex justify-between items-center">
+                        <div>
+                          <p className="font-bold text-sm">{res.name}</p>
+                          <p className="text-[9px] text-slate-500 font-black uppercase">{res.ageGroup} • {res.gender}</p>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="text-[8px] font-black uppercase text-slate-500">Regional</p>
+                            <p className="font-mono text-blue-400 font-bold text-xs">{res.regionalTimeStr || '-'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[8px] font-black uppercase text-slate-500">State</p>
+                            <p className="font-mono text-green-400 font-bold text-xs">{res.stateTimeStr || '-'}</p>
+                          </div>
+                          <button onClick={() => syncSingleResult(res)} className="bg-blue-600/20 hover:bg-blue-600/40 p-2 rounded-lg transition-all">
+                            <Plus className="w-4 h-4 text-blue-400" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isResearching && researchResults.length === 0 && (
+                <div className="text-center py-8">
+                  <Search className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                  <p className="text-slate-500 text-xs font-bold">Enter filters above and search to find qualifying standards</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {adminMode === 'events' && (
             <div className="space-y-6">
               {editingEvent ? (
@@ -637,13 +738,13 @@ const App: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4 border-t border-slate-700 pt-4 mt-2">
                     <div className="space-y-3">
                       <p className="text-[9px] font-black uppercase text-blue-400">Boys Cuts</p>
-                      <input name="regCutM" type="text" placeholder="Reg (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'M' && s.region === 'Regional')?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
-                      <input name="stateCutM" type="text" placeholder="State (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'M' && s.region === 'State')?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
+                      <input name="regCutM" type="text" placeholder="Reg (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'M' && s.region === 'Regional' && s.ageGroup === editingEvent.ageGroup && s.course === editingEvent.course)?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
+                      <input name="stateCutM" type="text" placeholder="State (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'M' && s.region === 'State' && s.ageGroup === editingEvent.ageGroup && s.course === editingEvent.course)?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
                     </div>
                     <div className="space-y-3">
                       <p className="text-[9px] font-black uppercase text-pink-400">Girls Cuts</p>
-                      <input name="regCutF" type="text" placeholder="Reg (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'F' && s.region === 'Regional')?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
-                      <input name="stateCutF" type="text" placeholder="State (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'F' && s.region === 'State')?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
+                      <input name="regCutF" type="text" placeholder="Reg (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'F' && s.region === 'Regional' && s.ageGroup === editingEvent.ageGroup && s.course === editingEvent.course)?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
+                      <input name="stateCutF" type="text" placeholder="State (mm:ss.xx)" defaultValue={formatTime(standards.find(s => s.eventId === editingEvent.id && s.gender === 'F' && s.region === 'State' && s.ageGroup === editingEvent.ageGroup && s.course === editingEvent.course)?.cutTimeSeconds || 0) || ''} className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
                     </div>
                   </div>
                   
@@ -653,7 +754,25 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <form onSubmit={handleAddEvent} className="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
                     <p className="text-[10px] font-black uppercase text-slate-500">New Master Event</p>
-                    <div className="grid grid-cols-2 gap-2"><input name="name" type="text" placeholder="50 Free" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" /><input name="distance" type="number" placeholder="Distance" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input name="name" type="text" placeholder="50 Free" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
+                      <input name="distance" type="number" placeholder="Distance" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select name="stroke" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                        {Object.values(Stroke).map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <select name="course" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                        {Object.values(Course).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <select name="ageGroup" required className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                      <option value="10U">10U</option>
+                      <option value="11-12">11-12</option>
+                      <option value="13-14">13-14</option>
+                      <option value="15-16">15-16</option>
+                      <option value="17-18">17-18</option>
+                    </select>
                     <button type="submit" className="w-full bg-blue-600 py-3 rounded-lg font-black uppercase text-[10px] flex items-center justify-center"><Plus className="w-4 h-4 mr-2" /> Create</button>
                   </form>
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
