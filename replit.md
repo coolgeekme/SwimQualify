@@ -106,6 +106,7 @@ The app supports four user roles with different navigation and capabilities:
 - Added bcrypt password hashing for secure password storage
 - Configured unified database for development and production environments
 - All data now persists across sessions - athletes, times, events, and standards are saved permanently
+- Added DQ (disqualification) support for race results - swimmers can now mark results as DQ, which displays in red and is excluded from best time calculations and charts
 
 ### Architecture
 - Frontend: React app served by Vite on port 5000
