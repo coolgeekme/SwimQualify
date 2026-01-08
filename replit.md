@@ -19,10 +19,11 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: React useState with localStorage persistence for data storage
 
 ### Data Persistence Strategy
-- **User Accounts**: PostgreSQL database with Drizzle ORM for permanent storage
-- **Other Data**: Browser localStorage with versioned keys (e.g., `sq_prod_athletes_v3`)
-- **Data Categories**: Athletes, Times, Standards, Events stored in localStorage; Users stored in database
+- **Full Database Persistence**: All core data is stored in PostgreSQL database with Drizzle ORM
+- **Database Tables**: Users, Athletes, Events, TimeEntries, QualifyingStandards
+- **Data Seeding**: Initial events and qualifying standards are auto-seeded on first login
 - **Mock Data**: Pre-seeded constants provide demo accounts for quick testing
+- **Session Only**: Only user session is stored in localStorage for login persistence
 - **Database**: Unified PostgreSQL database used for both development and production
 
 ### Authentication
@@ -69,6 +70,12 @@ The app supports four user roles with different navigation and capabilities:
   - `/api/auth/register`: User registration with bcrypt password hashing
   - `/api/auth/login`: User login with password verification
   - `/api/auth/users`: List all registered users (for frontend sync)
+  - `/api/athletes`: CRUD operations for athlete profiles
+  - `/api/events`: CRUD operations for swim events
+  - `/api/times`: CRUD operations for time entries
+  - `/api/standards`: CRUD operations for qualifying standards
+  - `/api/standards/bulk`: Bulk create qualifying standards
+  - `/api/seed`: Auto-seed initial events and standards data
   - `/api/ai/stroke-insights`: AI Technique Coach analysis
   - `/api/ai/analyze-document`: Document OCR and parsing for qualifying standards
   - `/api/ai/research-standards`: Real-time qualifying times research using Perplexity
@@ -88,15 +95,17 @@ The app supports four user roles with different navigation and capabilities:
 - `PERPLEXITY_API_KEY`: Required for real-time qualifying times research
 
 ### Browser APIs
-- **localStorage**: Data persistence for athletes, times, events, standards, and sessions
+- **localStorage**: User session persistence only (login state)
 - **Camera**: Permission requested per metadata.json for potential future OCR/time capture features
 
-### Recent Changes (December 2025)
-- Migrated user accounts from localStorage to PostgreSQL database for permanent persistence
+### Recent Changes (January 2026)
+- Migrated all data from localStorage to PostgreSQL database for permanent persistence
+- Extended database schema with Athletes, Events, TimeEntries, and QualifyingStandards tables
+- Added full CRUD API endpoints for all data entities
+- Auto-seeding of initial events and qualifying standards on first login
 - Added bcrypt password hashing for secure password storage
-- Created auth API endpoints for registration and login
 - Configured unified database for development and production environments
-- Users now only need to register once - accounts persist across preview reloads
+- All data now persists across sessions - athletes, times, events, and standards are saved permanently
 
 ### Architecture
 - Frontend: React app served by Vite on port 5000

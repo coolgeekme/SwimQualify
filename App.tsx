@@ -27,33 +27,81 @@ interface ResearchResult {
 }
 
 const STORAGE_KEYS = {
-  USERS: 'sq_prod_users_v3',
-  ATHLETES: 'sq_prod_athletes_v3',
-  TIMES: 'sq_prod_times_v3',
-  STANDARDS: 'sq_prod_standards_v3',
-  EVENTS: 'sq_prod_events_v3',
   AUTH: 'sq_prod_session_v3'
 };
 
+const getSessionHeaders = (user: User | null) => ({
+  'Content-Type': 'application/json',
+  ...(user ? { 'X-User-Session': JSON.stringify(user) } : {})
+});
 
 const App: React.FC = () => {
-  // Persistence Initialization
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
     return saved ? JSON.parse(saved) : null;
   });
   
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [times, setTimes] = useState<TimeEntry[]>([]);
+  const [standards, setStandards] = useState<QualifyingStandard[]>([]);
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataInitialized, setDataInitialized] = useState(false);
 
-  // Load users from database on mount
+  useEffect(() => { 
+    if (currentUser) localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(currentUser));
+    else localStorage.removeItem(STORAGE_KEYS.AUTH);
+  }, [currentUser]);
+
   useEffect(() => {
-    const loadUsers = async () => {
+    const loadAllData = async () => {
+      if (!currentUser) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const response = await fetch('/api/auth/users');
-        if (response.ok) {
-          const dbUsers = await response.json();
-          // Merge DB users with mock users (keeping mock for demo accounts)
+        await fetch('/api/seed', { method: 'POST' });
+
+        const [eventsRes, standardsRes, athletesRes, timesRes, usersRes] = await Promise.all([
+          fetch('/api/events'),
+          fetch('/api/standards'),
+          fetch('/api/athletes', { headers: getSessionHeaders(currentUser) }),
+          fetch('/api/times', { headers: getSessionHeaders(currentUser) }),
+          fetch('/api/auth/users')
+        ]);
+
+        if (eventsRes.ok) {
+          const dbEvents = await eventsRes.json();
+          setEvents(dbEvents.length > 0 ? dbEvents : EVENTS);
+        } else {
+          setEvents(EVENTS);
+        }
+
+        if (standardsRes.ok) {
+          const dbStandards = await standardsRes.json();
+          setStandards(dbStandards.length > 0 ? dbStandards : MOCK_STANDARDS);
+        } else {
+          setStandards(MOCK_STANDARDS);
+        }
+
+        if (athletesRes.ok) {
+          const dbAthletes = await athletesRes.json();
+          setAthletes(dbAthletes.length > 0 ? dbAthletes : MOCK_ATHLETES);
+        } else {
+          setAthletes(MOCK_ATHLETES);
+        }
+
+        if (timesRes.ok) {
+          const dbTimes = await timesRes.json();
+          setTimes(dbTimes.length > 0 ? dbTimes : MOCK_TIMES);
+        } else {
+          setTimes(MOCK_TIMES);
+        }
+
+        if (usersRes.ok) {
+          const dbUsers = await usersRes.json();
           const mergedUsers = [...MOCK_USERS];
           for (const dbUser of dbUsers) {
             if (!mergedUsers.some(u => u.email?.toLowerCase() === dbUser.email?.toLowerCase())) {
@@ -68,43 +116,19 @@ const App: React.FC = () => {
           }
           setUsers(mergedUsers);
         }
+
+        setDataInitialized(true);
       } catch (err) {
-        console.error('Failed to load users:', err);
+        console.error('Failed to load data:', err);
+        setEvents(EVENTS);
+        setStandards(MOCK_STANDARDS);
+        setAthletes(MOCK_ATHLETES);
+        setTimes(MOCK_TIMES);
       } finally {
-        setIsLoadingUsers(false);
+        setIsLoading(false);
       }
     };
-    loadUsers();
-  }, []);
-
-  const [times, setTimes] = useState<TimeEntry[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.TIMES);
-    return saved ? JSON.parse(saved) : MOCK_TIMES;
-  });
-
-  const [standards, setStandards] = useState<QualifyingStandard[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.STANDARDS);
-    return saved ? JSON.parse(saved) : MOCK_STANDARDS;
-  });
-
-  const [athletes, setAthletes] = useState<Athlete[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ATHLETES);
-    return saved ? JSON.parse(saved) : MOCK_ATHLETES;
-  });
-
-  const [events, setEvents] = useState<Event[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EVENTS);
-    return saved ? JSON.parse(saved) : EVENTS;
-  });
-
-  // Effects for Persistence (users now in database, not localStorage)
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.ATHLETES, JSON.stringify(athletes)); }, [athletes]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.TIMES, JSON.stringify(times)); }, [times]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.STANDARDS, JSON.stringify(standards)); }, [standards]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events)); }, [events]);
-  useEffect(() => { 
-    if (currentUser) localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(currentUser));
-    else localStorage.removeItem(STORAGE_KEYS.AUTH);
+    loadAllData();
   }, [currentUser]);
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -176,14 +200,24 @@ const App: React.FC = () => {
     return eventTimes.reduce((prev, curr) => (prev.timeSeconds < curr.timeSeconds ? prev : curr));
   };
 
-  const handleToggleEventSelection = (eventId: string) => {
-    if (!currentAthlete) return;
+  const handleToggleEventSelection = async (eventId: string) => {
+    if (!currentAthlete || !currentUser) return;
     const isSelected = currentAthlete.selectedEventIds.includes(eventId);
     const newSelected = isSelected 
       ? currentAthlete.selectedEventIds.filter(id => id !== eventId)
       : [...currentAthlete.selectedEventIds, eventId];
 
     setAthletes(prev => prev.map(a => a.id === currentAthlete.id ? { ...a, selectedEventIds: newSelected } : a));
+    
+    try {
+      await fetch(`/api/athletes/${currentAthlete.id}`, {
+        method: 'PUT',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify({ ...currentAthlete, selectedEventIds: newSelected })
+      });
+    } catch (err) {
+      console.error('Failed to update athlete events:', err);
+    }
   };
 
   const handleGenerateStrokeInsights = async () => {
@@ -308,8 +342,8 @@ const App: React.FC = () => {
     }
   };
 
-  const syncSingleResult = (res: ResearchResult) => {
-    if (!res.name) return;
+  const syncSingleResult = async (res: ResearchResult) => {
+    if (!res.name || !currentUser) return;
 
     const normalizeCourse = (c: any): Course => {
       if (c === Course.YARDS || c === Course.METERS) return c;
@@ -321,66 +355,105 @@ const App: React.FC = () => {
     };
 
     const normalizedCourse = normalizeCourse(res.course);
+    const genderVal: 'M' | 'F' = (res.gender === 'Women' || res.gender === 'F' || res.gender === 'Girls' ? 'F' : 'M');
+    const ageVal = res.ageGroup || '11-12';
 
-    setEvents(prevEvents => {
-      let existingEvent = prevEvents.find(e => 
-        e.name.toLowerCase() === res.name.toLowerCase() && 
-        e.course === normalizedCourse &&
-        e.ageGroup === (res.ageGroup || '11-12')
-      );
+    let existingEvent = events.find(e => 
+      e.name.toLowerCase() === res.name.toLowerCase() && 
+      e.course === normalizedCourse &&
+      e.ageGroup === ageVal
+    );
 
-      let eventId: string;
-      let updatedEvents = [...prevEvents];
+    let eventId: string;
 
-      if (existingEvent) {
-        eventId = existingEvent.id;
-      } else {
-        const newEvent: Event = {
-          id: `e-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: res.name,
-          distance: res.distance || 50,
-          stroke: res.stroke || Stroke.FREE,
-          course: normalizedCourse,
-          ageGroup: res.ageGroup || '11-12'
-        };
-        updatedEvents.push(newEvent);
+    if (existingEvent) {
+      eventId = existingEvent.id;
+    } else {
+      const newEvent: Event = {
+        id: `e-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: res.name,
+        distance: res.distance || 50,
+        stroke: res.stroke || Stroke.FREE,
+        course: normalizedCourse,
+        ageGroup: ageVal
+      };
+      
+      try {
+        const response = await fetch('/api/events', {
+          method: 'POST',
+          headers: getSessionHeaders(currentUser),
+          body: JSON.stringify(newEvent)
+        });
+        if (response.ok) {
+          const savedEvent = await response.json();
+          setEvents(prev => [...prev, savedEvent]);
+          eventId = savedEvent.id;
+        } else {
+          setEvents(prev => [...prev, newEvent]);
+          eventId = newEvent.id;
+        }
+      } catch (err) {
+        setEvents(prev => [...prev, newEvent]);
         eventId = newEvent.id;
       }
+    }
 
-      setStandards(prevStandards => {
-        const genderVal: 'M' | 'F' = (res.gender === 'Women' || res.gender === 'F' || res.gender === 'Girls' ? 'F' : 'M');
-        const ageVal = res.ageGroup || '11-12';
-        const courseVal = normalizedCourse;
+    const newStandards: QualifyingStandard[] = [];
 
-        let nextStandards = prevStandards.filter(s => 
-          !(s.eventId === eventId && s.gender === genderVal && s.ageGroup === ageVal && s.course === courseVal)
-        );
-
-        if (res.regionalTimeStr) {
-          nextStandards.push({
-            id: `s-reg-${Date.now()}-${Math.random()}`,
-            eventId, region: 'Regional', ageGroup: ageVal, gender: genderVal, course: courseVal,
-            cutTimeSeconds: parseTime(res.regionalTimeStr), season: '2025'
-          });
-        }
-
-        if (res.stateTimeStr) {
-          nextStandards.push({
-            id: `s-state-${Date.now()}-${Math.random()}`,
-            eventId, region: 'State', ageGroup: ageVal, gender: genderVal, course: courseVal,
-            cutTimeSeconds: parseTime(res.stateTimeStr), season: '2025'
-          });
-        }
-
-        return nextStandards;
+    if (res.regionalTimeStr) {
+      newStandards.push({
+        id: `s-reg-${Date.now()}-${Math.random()}`,
+        eventId, region: 'Regional', ageGroup: ageVal, gender: genderVal, course: normalizedCourse,
+        cutTimeSeconds: parseTime(res.regionalTimeStr), season: '2025'
       });
+    }
 
-      return updatedEvents;
-    });
+    if (res.stateTimeStr) {
+      newStandards.push({
+        id: `s-state-${Date.now()}-${Math.random()}`,
+        eventId, region: 'State', ageGroup: ageVal, gender: genderVal, course: normalizedCourse,
+        cutTimeSeconds: parseTime(res.stateTimeStr), season: '2025'
+      });
+    }
+
+    if (newStandards.length > 0) {
+      try {
+        const response = await fetch('/api/standards/bulk', {
+          method: 'POST',
+          headers: getSessionHeaders(currentUser),
+          body: JSON.stringify({ standards: newStandards })
+        });
+        if (response.ok) {
+          const savedStandards = await response.json();
+          setStandards(prev => {
+            const filtered = prev.filter(s => 
+              !(s.eventId === eventId && s.gender === genderVal && s.ageGroup === ageVal && s.course === normalizedCourse)
+            );
+            return [...filtered, ...savedStandards];
+          });
+        } else {
+          setStandards(prev => {
+            const filtered = prev.filter(s => 
+              !(s.eventId === eventId && s.gender === genderVal && s.ageGroup === ageVal && s.course === normalizedCourse)
+            );
+            return [...filtered, ...newStandards];
+          });
+        }
+      } catch (err) {
+        setStandards(prev => {
+          const filtered = prev.filter(s => 
+            !(s.eventId === eventId && s.gender === genderVal && s.ageGroup === ageVal && s.course === normalizedCourse)
+          );
+          return [...filtered, ...newStandards];
+        });
+      }
+    }
   };
 
-  const handleApplyResults = () => {
-    researchResults.forEach(res => syncSingleResult(res));
+  const handleApplyResults = async () => {
+    for (const res of researchResults) {
+      await syncSingleResult(res);
+    }
     setResearchResults([]);
     setGroundingLinks([]);
     setUploadPreview(null);
@@ -529,7 +602,7 @@ const App: React.FC = () => {
     alert("Global standards updated for both Boys and Girls.");
   };
 
-  const handleAddAthlete = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddAthlete = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentUser) return;
     const formData = new FormData(e.currentTarget);
@@ -543,11 +616,27 @@ const App: React.FC = () => {
       ageGroup: getAgeGroupAtDate(dob, new Date().toISOString()),
       selectedEventIds: []
     };
-    setAthletes(prev => [...prev, newAthlete]);
-    setCurrentScreen('roster');
+    
+    try {
+      const response = await fetch('/api/athletes', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify(newAthlete)
+      });
+      if (response.ok) {
+        const savedAthlete = await response.json();
+        setAthletes(prev => [...prev, savedAthlete]);
+        setCurrentScreen('roster');
+      } else {
+        alert('Failed to save athlete. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to save athlete:', err);
+      alert('Failed to save athlete. Please try again.');
+    }
   };
 
-  const handleAddEvent = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddEvent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newEvent: Event = {
@@ -558,14 +647,30 @@ const App: React.FC = () => {
       course: formData.get('course') as Course,
       ageGroup: formData.get('ageGroup') as string
     };
-    setEvents(prev => [...prev, newEvent]);
-    e.currentTarget.reset();
-    alert("Event created. Use Explorer or Edit to add cut times.");
+    
+    try {
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify(newEvent)
+      });
+      if (response.ok) {
+        const savedEvent = await response.json();
+        setEvents(prev => [...prev, savedEvent]);
+        e.currentTarget.reset();
+        alert("Event created. Use Explorer or Edit to add cut times.");
+      } else {
+        alert("Failed to save event. Please try again.");
+      }
+    } catch (err) {
+      console.error('Failed to save event:', err);
+      alert("Failed to save event. Please try again.");
+    }
   };
 
-  const handleAddTime = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddTime = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedEventId || !currentAthlete) return;
+    if (!selectedEventId || !currentAthlete || !currentUser) return;
     const formData = new FormData(e.currentTarget);
     const timeStr = formData.get('time') as string;
     const dateStr = formData.get('date') as string || new Date().toISOString().split('T')[0];
@@ -580,8 +685,23 @@ const App: React.FC = () => {
       course: events.find(e => e.id === selectedEventId)?.course || Course.YARDS
     };
     
-    setTimes(prev => [...prev, newTime]);
-    setCurrentScreen('event-detail');
+    try {
+      const response = await fetch('/api/times', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify(newTime)
+      });
+      if (response.ok) {
+        const savedTime = await response.json();
+        setTimes(prev => [...prev, savedTime]);
+        setCurrentScreen('event-detail');
+      } else {
+        alert("Failed to save time. Please try again.");
+      }
+    } catch (err) {
+      console.error('Failed to save time:', err);
+      alert("Failed to save time. Please try again.");
+    }
   };
 
   const renderDashboard = () => {

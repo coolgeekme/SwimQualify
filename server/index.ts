@@ -303,6 +303,399 @@ app.post('/api/ai/research-standards', rateLimitMiddleware, requireSession, asyn
   }
 });
 
+// ============ ATHLETES API ============
+app.get('/api/athletes', requireSession, async (req, res) => {
+  try {
+    const session = (req as any).userSession;
+    const athletes = await storage.getAthletesByTeam(session.teamId || 'team1');
+    res.json(athletes.map(a => ({
+      id: a.id,
+      userId: a.userId,
+      parentId: a.parentId,
+      name: a.name,
+      dob: a.dob,
+      gender: a.gender,
+      ageGroup: a.ageGroup,
+      selectedEventIds: a.selectedEventIds || []
+    })));
+  } catch (err: any) {
+    console.error('Get athletes error:', err);
+    res.status(500).json({ error: 'Failed to get athletes' });
+  }
+});
+
+app.post('/api/athletes', requireSession, async (req, res) => {
+  try {
+    const session = (req as any).userSession;
+    const { id, userId, parentId, name, dob, gender, ageGroup, selectedEventIds } = req.body;
+    const athlete = await storage.createAthlete({
+      id: id || `a_${Date.now()}`,
+      userId,
+      parentId,
+      name,
+      dob,
+      gender,
+      ageGroup,
+      selectedEventIds: selectedEventIds || [],
+      teamId: session.teamId || 'team1'
+    });
+    res.json({
+      id: athlete.id,
+      userId: athlete.userId,
+      parentId: athlete.parentId,
+      name: athlete.name,
+      dob: athlete.dob,
+      gender: athlete.gender,
+      ageGroup: athlete.ageGroup,
+      selectedEventIds: athlete.selectedEventIds || []
+    });
+  } catch (err: any) {
+    console.error('Create athlete error:', err);
+    res.status(500).json({ error: 'Failed to create athlete' });
+  }
+});
+
+app.put('/api/athletes/:id', requireSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, dob, gender, ageGroup, selectedEventIds, userId, parentId } = req.body;
+    const athlete = await storage.updateAthlete(id, { 
+      name, dob, gender, ageGroup, selectedEventIds, userId, parentId 
+    });
+    if (!athlete) {
+      return res.status(404).json({ error: 'Athlete not found' });
+    }
+    res.json({
+      id: athlete.id,
+      userId: athlete.userId,
+      parentId: athlete.parentId,
+      name: athlete.name,
+      dob: athlete.dob,
+      gender: athlete.gender,
+      ageGroup: athlete.ageGroup,
+      selectedEventIds: athlete.selectedEventIds || []
+    });
+  } catch (err: any) {
+    console.error('Update athlete error:', err);
+    res.status(500).json({ error: 'Failed to update athlete' });
+  }
+});
+
+app.delete('/api/athletes/:id', requireSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteAthlete(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Athlete not found' });
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Delete athlete error:', err);
+    res.status(500).json({ error: 'Failed to delete athlete' });
+  }
+});
+
+// ============ EVENTS API ============
+app.get('/api/events', async (req, res) => {
+  try {
+    const events = await storage.getAllEvents();
+    res.json(events.map(e => ({
+      id: e.id,
+      name: e.name,
+      distance: e.distance,
+      stroke: e.stroke,
+      course: e.course,
+      ageGroup: e.ageGroup
+    })));
+  } catch (err: any) {
+    console.error('Get events error:', err);
+    res.status(500).json({ error: 'Failed to get events' });
+  }
+});
+
+app.post('/api/events', requireSession, async (req, res) => {
+  try {
+    const { id, name, distance, stroke, course, ageGroup } = req.body;
+    const event = await storage.createEvent({
+      id: id || `e_${Date.now()}`,
+      name,
+      distance,
+      stroke,
+      course,
+      ageGroup
+    });
+    res.json({
+      id: event.id,
+      name: event.name,
+      distance: event.distance,
+      stroke: event.stroke,
+      course: event.course,
+      ageGroup: event.ageGroup
+    });
+  } catch (err: any) {
+    console.error('Create event error:', err);
+    res.status(500).json({ error: 'Failed to create event' });
+  }
+});
+
+app.delete('/api/events/:id', requireSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteEvent(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Delete event error:', err);
+    res.status(500).json({ error: 'Failed to delete event' });
+  }
+});
+
+// ============ TIME ENTRIES API ============
+app.get('/api/times', requireSession, async (req, res) => {
+  try {
+    const times = await storage.getAllTimeEntries();
+    res.json(times.map(t => ({
+      id: t.id,
+      athleteId: t.athleteId,
+      eventId: t.eventId,
+      timeSeconds: t.timeSeconds,
+      course: t.course,
+      date: t.date,
+      meetName: t.meetName,
+      splits: t.splits,
+      notes: t.notes,
+      ageGroupAtTime: t.ageGroupAtTime
+    })));
+  } catch (err: any) {
+    console.error('Get times error:', err);
+    res.status(500).json({ error: 'Failed to get times' });
+  }
+});
+
+app.post('/api/times', requireSession, async (req, res) => {
+  try {
+    const { id, athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime } = req.body;
+    const entry = await storage.createTimeEntry({
+      id: id || `t_${Date.now()}`,
+      athleteId,
+      eventId,
+      timeSeconds,
+      course,
+      date,
+      meetName,
+      splits,
+      notes,
+      ageGroupAtTime
+    });
+    res.json({
+      id: entry.id,
+      athleteId: entry.athleteId,
+      eventId: entry.eventId,
+      timeSeconds: entry.timeSeconds,
+      course: entry.course,
+      date: entry.date,
+      meetName: entry.meetName,
+      splits: entry.splits,
+      notes: entry.notes,
+      ageGroupAtTime: entry.ageGroupAtTime
+    });
+  } catch (err: any) {
+    console.error('Create time entry error:', err);
+    res.status(500).json({ error: 'Failed to create time entry' });
+  }
+});
+
+app.put('/api/times/:id', requireSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime } = req.body;
+    const entry = await storage.updateTimeEntry(id, {
+      athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime
+    });
+    if (!entry) {
+      return res.status(404).json({ error: 'Time entry not found' });
+    }
+    res.json({
+      id: entry.id,
+      athleteId: entry.athleteId,
+      eventId: entry.eventId,
+      timeSeconds: entry.timeSeconds,
+      course: entry.course,
+      date: entry.date,
+      meetName: entry.meetName,
+      splits: entry.splits,
+      notes: entry.notes,
+      ageGroupAtTime: entry.ageGroupAtTime
+    });
+  } catch (err: any) {
+    console.error('Update time entry error:', err);
+    res.status(500).json({ error: 'Failed to update time entry' });
+  }
+});
+
+app.delete('/api/times/:id', requireSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteTimeEntry(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Time entry not found' });
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Delete time entry error:', err);
+    res.status(500).json({ error: 'Failed to delete time entry' });
+  }
+});
+
+// ============ QUALIFYING STANDARDS API ============
+app.get('/api/standards', async (req, res) => {
+  try {
+    const standards = await storage.getAllQualifyingStandards();
+    res.json(standards.map(s => ({
+      id: s.id,
+      eventId: s.eventId,
+      region: s.region,
+      ageGroup: s.ageGroup,
+      gender: s.gender,
+      course: s.course,
+      cutTimeSeconds: s.cutTimeSeconds,
+      season: s.season
+    })));
+  } catch (err: any) {
+    console.error('Get standards error:', err);
+    res.status(500).json({ error: 'Failed to get standards' });
+  }
+});
+
+app.post('/api/standards', requireSession, async (req, res) => {
+  try {
+    const { id, eventId, region, ageGroup, gender, course, cutTimeSeconds, season } = req.body;
+    const standard = await storage.createQualifyingStandard({
+      id: id || `s_${Date.now()}`,
+      eventId,
+      region,
+      ageGroup,
+      gender,
+      course,
+      cutTimeSeconds,
+      season
+    });
+    res.json({
+      id: standard.id,
+      eventId: standard.eventId,
+      region: standard.region,
+      ageGroup: standard.ageGroup,
+      gender: standard.gender,
+      course: standard.course,
+      cutTimeSeconds: standard.cutTimeSeconds,
+      season: standard.season
+    });
+  } catch (err: any) {
+    console.error('Create standard error:', err);
+    res.status(500).json({ error: 'Failed to create standard' });
+  }
+});
+
+app.post('/api/standards/bulk', requireSession, async (req, res) => {
+  try {
+    const { standards } = req.body;
+    const created = [];
+    for (const s of standards) {
+      const standard = await storage.createQualifyingStandard({
+        id: s.id || `s_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: s.eventId,
+        region: s.region,
+        ageGroup: s.ageGroup,
+        gender: s.gender,
+        course: s.course,
+        cutTimeSeconds: s.cutTimeSeconds,
+        season: s.season
+      });
+      created.push({
+        id: standard.id,
+        eventId: standard.eventId,
+        region: standard.region,
+        ageGroup: standard.ageGroup,
+        gender: standard.gender,
+        course: standard.course,
+        cutTimeSeconds: standard.cutTimeSeconds,
+        season: standard.season
+      });
+    }
+    res.json(created);
+  } catch (err: any) {
+    console.error('Bulk create standards error:', err);
+    res.status(500).json({ error: 'Failed to create standards' });
+  }
+});
+
+app.delete('/api/standards/:id', requireSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteQualifyingStandard(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Standard not found' });
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Delete standard error:', err);
+    res.status(500).json({ error: 'Failed to delete standard' });
+  }
+});
+
+// ============ DATA SEEDING ENDPOINT ============
+app.post('/api/seed', async (req, res) => {
+  try {
+    const existingEvents = await storage.getAllEvents();
+    if (existingEvents.length > 0) {
+      return res.json({ message: 'Data already seeded', seeded: false });
+    }
+
+    const defaultEvents = [
+      { id: '1', name: '50 Free', distance: 50, stroke: 'Freestyle', course: 'Yards', ageGroup: '11-12' },
+      { id: '2', name: '100 Free', distance: 100, stroke: 'Freestyle', course: 'Yards', ageGroup: '11-12' },
+      { id: '3', name: '100 Back', distance: 100, stroke: 'Backstroke', course: 'Yards', ageGroup: '11-12' },
+      { id: '4', name: '100 Breast', distance: 100, stroke: 'Breaststroke', course: 'Yards', ageGroup: '11-12' },
+      { id: '5', name: '100 Fly', distance: 100, stroke: 'Butterfly', course: 'Yards', ageGroup: '11-12' },
+      { id: '6', name: '200 IM', distance: 200, stroke: 'Individual Medley', course: 'Yards', ageGroup: '11-12' },
+      { id: '7', name: '50 Free', distance: 50, stroke: 'Freestyle', course: 'Yards', ageGroup: '10U' },
+    ];
+
+    for (const e of defaultEvents) {
+      try {
+        await storage.createEvent(e);
+      } catch (err: any) {
+        if (err.cause?.code !== '23505') throw err;
+      }
+    }
+
+    const defaultStandards = [
+      { id: 's1', eventId: '1', region: 'Regional', ageGroup: '11-12', gender: 'M', course: 'Yards', cutTimeSeconds: 29.50, season: '2025' },
+      { id: 's2', eventId: '1', region: 'State', ageGroup: '11-12', gender: 'M', course: 'Yards', cutTimeSeconds: 27.20, season: '2025' },
+      { id: 's1-f', eventId: '1', region: 'Regional', ageGroup: '11-12', gender: 'F', course: 'Yards', cutTimeSeconds: 30.10, season: '2025' },
+      { id: 's2-f', eventId: '1', region: 'State', ageGroup: '11-12', gender: 'F', course: 'Yards', cutTimeSeconds: 28.50, season: '2025' },
+      { id: 's3', eventId: '2', region: 'Regional', ageGroup: '11-12', gender: 'M', course: 'Yards', cutTimeSeconds: 65.00, season: '2025' },
+      { id: 's4', eventId: '2', region: 'State', ageGroup: '11-12', gender: 'M', course: 'Yards', cutTimeSeconds: 59.80, season: '2025' },
+      { id: 's5', eventId: '7', region: 'Regional', ageGroup: '10U', gender: 'M', course: 'Yards', cutTimeSeconds: 34.50, season: '2025' },
+    ];
+
+    for (const s of defaultStandards) {
+      try {
+        await storage.createQualifyingStandard(s);
+      } catch (err: any) {
+        if (err.cause?.code !== '23505') throw err;
+      }
+    }
+
+    res.json({ message: 'Data seeded successfully', seeded: true });
+  } catch (err: any) {
+    console.error('Seed error:', err);
+    res.status(500).json({ error: 'Failed to seed data' });
+  }
+});
+
 const PORT = parseInt(process.env.PORT || '3001', 10);
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API server running on port ${PORT}`);
