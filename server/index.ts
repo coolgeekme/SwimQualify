@@ -246,7 +246,7 @@ app.post('/api/ai/research-standards', rateLimitMiddleware, requireSession, asyn
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
@@ -264,8 +264,7 @@ app.post('/api/ai/research-standards', rateLimitMiddleware, requireSession, asyn
         ],
         temperature: 0.2,
         max_tokens: 2048,
-        return_related_questions: false,
-        search_recency_filter: 'month'
+        return_related_questions: false
       })
     });
 
