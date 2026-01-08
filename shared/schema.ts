@@ -1,4 +1,4 @@
-import { pgTable, text, serial, varchar, timestamp, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, varchar, timestamp, real, jsonb, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
@@ -50,6 +50,7 @@ export const timeEntries = pgTable("time_entries", {
   splits: jsonb("splits").$type<number[]>(),
   notes: text("notes"),
   ageGroupAtTime: text("age_group_at_time"),
+  isDQ: boolean("is_dq").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -466,7 +466,8 @@ app.get('/api/times', requireSession, async (req, res) => {
       meetName: t.meetName,
       splits: t.splits,
       notes: t.notes,
-      ageGroupAtTime: t.ageGroupAtTime
+      ageGroupAtTime: t.ageGroupAtTime,
+      isDQ: t.isDQ
     })));
   } catch (err: any) {
     console.error('Get times error:', err);
@@ -476,7 +477,7 @@ app.get('/api/times', requireSession, async (req, res) => {
 
 app.post('/api/times', requireSession, async (req, res) => {
   try {
-    const { id, athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime } = req.body;
+    const { id, athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime, isDQ } = req.body;
     const entry = await storage.createTimeEntry({
       id: id || `t_${Date.now()}`,
       athleteId,
@@ -487,7 +488,8 @@ app.post('/api/times', requireSession, async (req, res) => {
       meetName,
       splits,
       notes,
-      ageGroupAtTime
+      ageGroupAtTime,
+      isDQ
     });
     res.json({
       id: entry.id,
@@ -499,7 +501,8 @@ app.post('/api/times', requireSession, async (req, res) => {
       meetName: entry.meetName,
       splits: entry.splits,
       notes: entry.notes,
-      ageGroupAtTime: entry.ageGroupAtTime
+      ageGroupAtTime: entry.ageGroupAtTime,
+      isDQ: entry.isDQ
     });
   } catch (err: any) {
     console.error('Create time entry error:', err);
@@ -510,9 +513,9 @@ app.post('/api/times', requireSession, async (req, res) => {
 app.put('/api/times/:id', requireSession, async (req, res) => {
   try {
     const { id } = req.params;
-    const { athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime } = req.body;
+    const { athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime, isDQ } = req.body;
     const entry = await storage.updateTimeEntry(id, {
-      athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime
+      athleteId, eventId, timeSeconds, course, date, meetName, splits, notes, ageGroupAtTime, isDQ
     });
     if (!entry) {
       return res.status(404).json({ error: 'Time entry not found' });
@@ -527,7 +530,8 @@ app.put('/api/times/:id', requireSession, async (req, res) => {
       meetName: entry.meetName,
       splits: entry.splits,
       notes: entry.notes,
-      ageGroupAtTime: entry.ageGroupAtTime
+      ageGroupAtTime: entry.ageGroupAtTime,
+      isDQ: entry.isDQ
     });
   } catch (err: any) {
     console.error('Update time entry error:', err);

@@ -59,6 +59,7 @@ export interface TimeEntry {
   splits?: number[];
   notes?: string;
   ageGroupAtTime?: string; // Track which age group they were in when they swam this
+  isDQ?: boolean; // Disqualification flag
 }
 
 export interface QualifyingStandard {
