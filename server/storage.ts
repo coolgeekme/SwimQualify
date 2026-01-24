@@ -1,21 +1,127 @@
-import { 
-  users, type User, type InsertUser,
-  athletes, type Athlete, type InsertAthlete,
-  events, type Event, type InsertEvent,
-  timeEntries, type TimeEntry, type InsertTimeEntry,
-  qualifyingStandards, type QualifyingStandard, type InsertQualifyingStandard
-} from "../shared/schema";
-import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { connectDB, getDB } from "./db";
+import { ObjectId } from 'mongodb';
+
+// Type definitions matching the original schema
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  teamId: string;
+  createdAt: Date;
+}
+
+export interface InsertUser {
+  name: string;
+  email: string;
+  password: string;
+  role?: string;
+  teamId?: string;
+}
+
+export interface Athlete {
+  id: string;
+  userId?: string;
+  parentId?: string;
+  name: string;
+  dob: string;
+  gender: string;
+  ageGroup: string;
+  selectedEventIds: string[];
+  teamId: string;
+  createdAt: Date;
+}
+
+export interface InsertAthlete {
+  id: string;
+  userId?: string;
+  parentId?: string;
+  name: string;
+  dob: string;
+  gender: string;
+  ageGroup: string;
+  selectedEventIds?: string[];
+  teamId?: string;
+}
+
+export interface Event {
+  id: string;
+  name: string;
+  distance: number;
+  stroke: string;
+  course: string;
+  ageGroup: string;
+  createdAt: Date;
+}
+
+export interface InsertEvent {
+  id: string;
+  name: string;
+  distance: number;
+  stroke: string;
+  course: string;
+  ageGroup: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  athleteId: string;
+  eventId: string;
+  timeSeconds: number;
+  course: string;
+  date: string;
+  meetName?: string;
+  splits?: number[];
+  notes?: string;
+  ageGroupAtTime?: string;
+  isDQ?: boolean;
+  createdAt: Date;
+}
+
+export interface InsertTimeEntry {
+  id: string;
+  athleteId: string;
+  eventId: string;
+  timeSeconds: number;
+  course: string;
+  date: string;
+  meetName?: string;
+  splits?: number[];
+  notes?: string;
+  ageGroupAtTime?: string;
+  isDQ?: boolean;
+}
+
+export interface QualifyingStandard {
+  id: string;
+  eventId: string;
+  region: string;
+  ageGroup: string;
+  gender: string;
+  course: string;
+  cutTimeSeconds: number;
+  season: string;
+  createdAt: Date;
+}
+
+export interface InsertQualifyingStandard {
+  id: string;
+  eventId: string;
+  region: string;
+  ageGroup: string;
+  gender: string;
+  course: string;
+  cutTimeSeconds: number;
+  season: string;
+}
 
 export interface IStorage {
-  // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(insertUser: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   
-  // Athletes
   getAthlete(id: string): Promise<Athlete | undefined>;
   getAthletesByTeam(teamId: string): Promise<Athlete[]>;
   getAthletesByParent(parentId: string): Promise<Athlete[]>;
@@ -23,21 +129,19 @@ export interface IStorage {
   updateAthlete(id: string, athlete: Partial<InsertAthlete>): Promise<Athlete | undefined>;
   deleteAthlete(id: string): Promise<boolean>;
   
-  // Events
   getEvent(id: string): Promise<Event | undefined>;
   getAllEvents(): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(id: string): Promise<boolean>;
   
-  // Time Entries
   getTimeEntry(id: string): Promise<TimeEntry | undefined>;
   getTimeEntriesByAthlete(athleteId: string): Promise<TimeEntry[]>;
+  getAllTimeEntries(): Promise<TimeEntry[]>;
   createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry>;
   updateTimeEntry(id: string, entry: Partial<InsertTimeEntry>): Promise<TimeEntry | undefined>;
   deleteTimeEntry(id: string): Promise<boolean>;
   
-  // Qualifying Standards
   getQualifyingStandard(id: string): Promise<QualifyingStandard | undefined>;
   getAllQualifyingStandards(): Promise<QualifyingStandard[]>;
   createQualifyingStandard(standard: InsertQualifyingStandard): Promise<QualifyingStandard>;
@@ -45,139 +149,259 @@ export interface IStorage {
   deleteQualifyingStandard(id: string): Promise<boolean>;
 }
 
+// Helper to convert MongoDB document to typed object without _id
+function stripMongoId<T>(doc: any): T {
+  if (!doc) return doc;
+  const { _id, ...rest } = doc;
+  return rest as T;
+}
+
 export class DatabaseStorage implements IStorage {
+  private initialized = false;
+  private userCounter = 1;
+
+  private async init() {
+    if (this.initialized) return;
+    await connectDB();
+    
+    // Get the highest user ID to continue sequence
+    const db = getDB();
+    const lastUser = await db.collection('users').findOne({}, { sort: { id: -1 } });
+    if (lastUser && typeof lastUser.id === 'number') {
+      this.userCounter = lastUser.id + 1;
+    }
+    
+    this.initialized = true;
+  }
+
   // ============ Users ============
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    await this.init();
+    const db = getDB();
+    const user = await db.collection('users').findOne({ id });
+    return user ? stripMongoId<User>(user) : undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
-    return user || undefined;
+    await this.init();
+    const db = getDB();
+    const user = await db.collection('users').findOne({ email: email.toLowerCase() });
+    return user ? stripMongoId<User>(user) : undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        ...insertUser,
-        email: insertUser.email.toLowerCase(),
-      })
-      .returning();
+    await this.init();
+    const db = getDB();
+    const user: User = {
+      id: this.userCounter++,
+      name: insertUser.name,
+      email: insertUser.email.toLowerCase(),
+      password: insertUser.password,
+      role: insertUser.role || 'swimmer',
+      teamId: insertUser.teamId || 'team1',
+      createdAt: new Date()
+    };
+    await db.collection('users').insertOne({ ...user });
     return user;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users);
+    await this.init();
+    const db = getDB();
+    const users = await db.collection('users').find({}).toArray();
+    return users.map(u => stripMongoId<User>(u));
   }
 
   // ============ Athletes ============
   async getAthlete(id: string): Promise<Athlete | undefined> {
-    const [athlete] = await db.select().from(athletes).where(eq(athletes.id, id));
-    return athlete || undefined;
+    await this.init();
+    const db = getDB();
+    const athlete = await db.collection('athletes').findOne({ id });
+    return athlete ? stripMongoId<Athlete>(athlete) : undefined;
   }
 
   async getAthletesByTeam(teamId: string): Promise<Athlete[]> {
-    return await db.select().from(athletes).where(eq(athletes.teamId, teamId));
+    await this.init();
+    const db = getDB();
+    const athletes = await db.collection('athletes').find({ teamId }).toArray();
+    return athletes.map(a => stripMongoId<Athlete>(a));
   }
 
   async getAthletesByParent(parentId: string): Promise<Athlete[]> {
-    return await db.select().from(athletes).where(eq(athletes.parentId, parentId));
+    await this.init();
+    const db = getDB();
+    const athletes = await db.collection('athletes').find({ parentId }).toArray();
+    return athletes.map(a => stripMongoId<Athlete>(a));
   }
 
   async createAthlete(athlete: InsertAthlete): Promise<Athlete> {
-    const [created] = await db.insert(athletes).values(athlete).returning();
-    return created;
+    await this.init();
+    const db = getDB();
+    const newAthlete: Athlete = {
+      ...athlete,
+      selectedEventIds: athlete.selectedEventIds || [],
+      teamId: athlete.teamId || 'team1',
+      createdAt: new Date()
+    };
+    await db.collection('athletes').insertOne({ ...newAthlete });
+    return newAthlete;
   }
 
   async updateAthlete(id: string, athlete: Partial<InsertAthlete>): Promise<Athlete | undefined> {
-    const [updated] = await db.update(athletes).set(athlete).where(eq(athletes.id, id)).returning();
-    return updated || undefined;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('athletes').findOneAndUpdate(
+      { id },
+      { $set: athlete },
+      { returnDocument: 'after' }
+    );
+    return result ? stripMongoId<Athlete>(result) : undefined;
   }
 
   async deleteAthlete(id: string): Promise<boolean> {
-    const result = await db.delete(athletes).where(eq(athletes.id, id)).returning();
-    return result.length > 0;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('athletes').deleteOne({ id });
+    return result.deletedCount > 0;
   }
 
   // ============ Events ============
   async getEvent(id: string): Promise<Event | undefined> {
-    const [event] = await db.select().from(events).where(eq(events.id, id));
-    return event || undefined;
+    await this.init();
+    const db = getDB();
+    const event = await db.collection('events').findOne({ id });
+    return event ? stripMongoId<Event>(event) : undefined;
   }
 
   async getAllEvents(): Promise<Event[]> {
-    return await db.select().from(events);
+    await this.init();
+    const db = getDB();
+    const events = await db.collection('events').find({}).toArray();
+    return events.map(e => stripMongoId<Event>(e));
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
-    const [created] = await db.insert(events).values(event).returning();
-    return created;
+    await this.init();
+    const db = getDB();
+    const newEvent: Event = {
+      ...event,
+      createdAt: new Date()
+    };
+    await db.collection('events').insertOne({ ...newEvent });
+    return newEvent;
   }
 
   async updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined> {
-    const [updated] = await db.update(events).set(event).where(eq(events.id, id)).returning();
-    return updated || undefined;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('events').findOneAndUpdate(
+      { id },
+      { $set: event },
+      { returnDocument: 'after' }
+    );
+    return result ? stripMongoId<Event>(result) : undefined;
   }
 
   async deleteEvent(id: string): Promise<boolean> {
-    const result = await db.delete(events).where(eq(events.id, id)).returning();
-    return result.length > 0;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('events').deleteOne({ id });
+    return result.deletedCount > 0;
   }
 
   // ============ Time Entries ============
   async getTimeEntry(id: string): Promise<TimeEntry | undefined> {
-    const [entry] = await db.select().from(timeEntries).where(eq(timeEntries.id, id));
-    return entry || undefined;
+    await this.init();
+    const db = getDB();
+    const entry = await db.collection('timeEntries').findOne({ id });
+    return entry ? stripMongoId<TimeEntry>(entry) : undefined;
   }
 
   async getTimeEntriesByAthlete(athleteId: string): Promise<TimeEntry[]> {
-    return await db.select().from(timeEntries).where(eq(timeEntries.athleteId, athleteId));
+    await this.init();
+    const db = getDB();
+    const entries = await db.collection('timeEntries').find({ athleteId }).toArray();
+    return entries.map(e => stripMongoId<TimeEntry>(e));
   }
 
   async getAllTimeEntries(): Promise<TimeEntry[]> {
-    return await db.select().from(timeEntries);
+    await this.init();
+    const db = getDB();
+    const entries = await db.collection('timeEntries').find({}).toArray();
+    return entries.map(e => stripMongoId<TimeEntry>(e));
   }
 
   async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
-    const [created] = await db.insert(timeEntries).values(entry).returning();
-    return created;
+    await this.init();
+    const db = getDB();
+    const newEntry: TimeEntry = {
+      ...entry,
+      createdAt: new Date()
+    };
+    await db.collection('timeEntries').insertOne({ ...newEntry });
+    return newEntry;
   }
 
   async updateTimeEntry(id: string, entry: Partial<InsertTimeEntry>): Promise<TimeEntry | undefined> {
-    const [updated] = await db.update(timeEntries).set(entry).where(eq(timeEntries.id, id)).returning();
-    return updated || undefined;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('timeEntries').findOneAndUpdate(
+      { id },
+      { $set: entry },
+      { returnDocument: 'after' }
+    );
+    return result ? stripMongoId<TimeEntry>(result) : undefined;
   }
 
   async deleteTimeEntry(id: string): Promise<boolean> {
-    const result = await db.delete(timeEntries).where(eq(timeEntries.id, id)).returning();
-    return result.length > 0;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('timeEntries').deleteOne({ id });
+    return result.deletedCount > 0;
   }
 
   // ============ Qualifying Standards ============
   async getQualifyingStandard(id: string): Promise<QualifyingStandard | undefined> {
-    const [standard] = await db.select().from(qualifyingStandards).where(eq(qualifyingStandards.id, id));
-    return standard || undefined;
+    await this.init();
+    const db = getDB();
+    const standard = await db.collection('qualifyingStandards').findOne({ id });
+    return standard ? stripMongoId<QualifyingStandard>(standard) : undefined;
   }
 
   async getAllQualifyingStandards(): Promise<QualifyingStandard[]> {
-    return await db.select().from(qualifyingStandards);
+    await this.init();
+    const db = getDB();
+    const standards = await db.collection('qualifyingStandards').find({}).toArray();
+    return standards.map(s => stripMongoId<QualifyingStandard>(s));
   }
 
   async createQualifyingStandard(standard: InsertQualifyingStandard): Promise<QualifyingStandard> {
-    const [created] = await db.insert(qualifyingStandards).values(standard).returning();
-    return created;
+    await this.init();
+    const db = getDB();
+    const newStandard: QualifyingStandard = {
+      ...standard,
+      createdAt: new Date()
+    };
+    await db.collection('qualifyingStandards').insertOne({ ...newStandard });
+    return newStandard;
   }
 
   async updateQualifyingStandard(id: string, standard: Partial<InsertQualifyingStandard>): Promise<QualifyingStandard | undefined> {
-    const [updated] = await db.update(qualifyingStandards).set(standard).where(eq(qualifyingStandards.id, id)).returning();
-    return updated || undefined;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('qualifyingStandards').findOneAndUpdate(
+      { id },
+      { $set: standard },
+      { returnDocument: 'after' }
+    );
+    return result ? stripMongoId<QualifyingStandard>(result) : undefined;
   }
 
   async deleteQualifyingStandard(id: string): Promise<boolean> {
-    const result = await db.delete(qualifyingStandards).where(eq(qualifyingStandards.id, id)).returning();
-    return result.length > 0;
+    await this.init();
+    const db = getDB();
+    const result = await db.collection('qualifyingStandards').deleteOne({ id });
+    return result.deletedCount > 0;
   }
 }
 
