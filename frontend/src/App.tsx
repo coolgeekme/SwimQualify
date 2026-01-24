@@ -687,7 +687,7 @@ const App: React.FC = () => {
       date: dateStr,
       meetName: meetNameStr || undefined,
       ageGroupAtTime: currentAthlete.ageGroup,
-      course: events.find(e => e.id === selectedEventId)?.course || Course.YARDS,
+      course: events.find(e => e.id === selectedEventId)?.course || Course.SCY,
       isDQ
     };
     
