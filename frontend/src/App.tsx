@@ -818,8 +818,9 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <input name="stateLocation" type="text" placeholder="State (e.g. Texas, California)" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white placeholder:text-slate-600" />
                   <select name="course" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
-                    <option value={Course.YARDS}>SCY (Yards)</option>
-                    <option value={Course.METERS}>LCM (Meters)</option>
+                    <option value={Course.SCY}>SCY (Short Course Yards)</option>
+                    <option value={Course.SCM}>SCM (Short Course Meters)</option>
+                    <option value={Course.LCM}>LCM (Long Course Meters)</option>
                   </select>
                 </div>
                 <button type="submit" disabled={isResearching} className="w-full bg-blue-600 py-3 rounded-lg font-black uppercase text-[10px] flex items-center justify-center hover:bg-blue-500 transition-all disabled:opacity-50">
