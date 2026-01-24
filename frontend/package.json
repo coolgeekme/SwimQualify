@@ -2,6 +2,7 @@
   "name": "swimqualify-frontend",
   "version": "1.0.0",
   "private": true,
+  "proxy": "http://localhost:8001",
   "dependencies": {
     "@types/node": "^25.0.10",
     "@types/react": "^19.2.9",
