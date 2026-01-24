@@ -346,12 +346,14 @@ const App: React.FC = () => {
     if (!res.name || !currentUser) return;
 
     const normalizeCourse = (c: any): Course => {
-      if (c === Course.YARDS || c === Course.METERS) return c;
+      if (c === Course.SCY || c === Course.SCM || c === Course.LCM) return c;
       if (typeof c === 'string') {
         const lower = c.toLowerCase();
-        if (lower.includes('meter') || lower === 'lcm') return Course.METERS;
+        if (lower === 'lcm' || lower.includes('long course')) return Course.LCM;
+        if (lower === 'scm' || lower.includes('short course meters')) return Course.SCM;
+        if (lower.includes('meter')) return Course.LCM; // Default meters to LCM
       }
-      return Course.YARDS;
+      return Course.SCY; // Default to SCY
     };
 
     const normalizedCourse = normalizeCourse(res.course);
