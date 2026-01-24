@@ -288,11 +288,11 @@ async def seed_data():
         return {"message": "Data already seeded", "seeded": False}
     
     default_events = [
-        {"id": "1", "name": "50 Free", "distance": 50, "stroke": "Freestyle", "course": "Yards", "ageGroup": "11-12"},
-        {"id": "2", "name": "100 Free", "distance": 100, "stroke": "Freestyle", "course": "Yards", "ageGroup": "11-12"},
-        {"id": "3", "name": "100 Back", "distance": 100, "stroke": "Backstroke", "course": "Yards", "ageGroup": "11-12"},
-        {"id": "4", "name": "100 Breast", "distance": 100, "stroke": "Breaststroke", "course": "Yards", "ageGroup": "11-12"},
-        {"id": "5", "name": "100 Fly", "distance": 100, "stroke": "Butterfly", "course": "Yards", "ageGroup": "11-12"},
+        {"id": "1", "name": "50 Free", "distance": 50, "stroke": "Freestyle", "course": "SCY", "ageGroup": "11-12"},
+        {"id": "2", "name": "100 Free", "distance": 100, "stroke": "Freestyle", "course": "SCY", "ageGroup": "11-12"},
+        {"id": "3", "name": "100 Back", "distance": 100, "stroke": "Backstroke", "course": "SCY", "ageGroup": "11-12"},
+        {"id": "4", "name": "100 Breast", "distance": 100, "stroke": "Breaststroke", "course": "SCY", "ageGroup": "11-12"},
+        {"id": "5", "name": "100 Fly", "distance": 100, "stroke": "Butterfly", "course": "SCY", "ageGroup": "11-12"},
         {"id": "6", "name": "200 IM", "distance": 200, "stroke": "Individual Medley", "course": "Yards", "ageGroup": "11-12"},
         {"id": "7", "name": "50 Free", "distance": 50, "stroke": "Freestyle", "course": "Yards", "ageGroup": "10U"},
     ]
