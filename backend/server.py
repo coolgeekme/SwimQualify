@@ -7,6 +7,10 @@ import bcrypt
 import os
 import httpx
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 
