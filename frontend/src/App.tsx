@@ -142,7 +142,7 @@ const App: React.FC = () => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editingTimeEntry, setEditingTimeEntry] = useState<TimeEntry | null>(null);
   const [adminMode, setAdminMode] = useState<'search' | 'scan' | 'events' | 'explorer'>('explorer');
-  const [explorerFilter, setExplorerFilter] = useState<{ ageGroup: string; gender: 'M' | 'F'; course: Course }>({ ageGroup: '11-12', gender: 'M', course: Course.YARDS });
+  const [explorerFilter, setExplorerFilter] = useState<{ ageGroup: string; gender: 'M' | 'F'; course: Course }>({ ageGroup: '11-12', gender: 'M', course: Course.SCY });
 
   // AI Insights State
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
