@@ -362,6 +362,13 @@ async def research_standards(req: ResearchStandardsRequest):
     if not PERPLEXITY_API_KEY:
         raise HTTPException(status_code=500, detail="Perplexity API key not configured")
     
+    # Map course codes to full descriptions for search
+    course_description = {
+        "SCY": "Short Course Yards (25 yard pool)",
+        "SCM": "Short Course Meters (25 meter pool)", 
+        "LCM": "Long Course Meters (50 meter pool)"
+    }.get(req.course, req.course)
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(
             "https://api.perplexity.ai/chat/completions",
@@ -369,8 +376,8 @@ async def research_standards(req: ResearchStandardsRequest):
             json={
                 "model": "sonar",
                 "messages": [
-                    {"role": "system", "content": "You are a helpful assistant that researches swim qualifying standards. Always return data as valid JSON arrays only, with no additional text."},
-                    {"role": "user", "content": f"Find the 2024-2025 {req.ageGroup} {req.gender} swim qualifying standards for {req.stateLocation} in {req.course} course. For each event, find BOTH Regional and State cuts. Return as JSON array: [{{\"name\": string, \"distance\": number, \"stroke\": string, \"regionalTimeStr\": string, \"stateTimeStr\": string, \"ageGroup\": string, \"gender\": string, \"course\": string}}]. Return ONLY raw JSON."}
+                    {"role": "system", "content": "You are a helpful assistant that researches swim qualifying standards. Always return data as valid JSON arrays only, with no additional text. Course types: SCY = Short Course Yards (25 yard pool), SCM = Short Course Meters (25 meter pool), LCM = Long Course Meters (50 meter pool)."},
+                    {"role": "user", "content": f"Find the 2024-2025 {req.ageGroup} {req.gender} swim qualifying standards for {req.stateLocation} in {course_description}. For each event, find BOTH Regional and State cuts. Return as JSON array: [{{\"name\": string, \"distance\": number, \"stroke\": string, \"regionalTimeStr\": string, \"stateTimeStr\": string, \"ageGroup\": string, \"gender\": string, \"course\": \"{req.course}\"}}]. The course value MUST be exactly \"{req.course}\". Return ONLY raw JSON."}
                 ],
                 "temperature": 0.2,
                 "max_tokens": 2048
