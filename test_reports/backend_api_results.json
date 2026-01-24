@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-01-24T18:24:10.824691",
+  "total_tests": 9,
+  "passed_tests": 5,
+  "success_rate": "55.6%",
+  "results": [
+    {
+      "test": "API Health Check",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-24T18:24:10.714135"
+    },
+    {
+      "test": "Standards Endpoint",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-24T18:24:10.716413"
+    },
+    {
+      "test": "Demo Login - alex@team.com",
+      "success": false,
+      "details": "Status: 401, Expected: 200, Error: Invalid credentials",
+      "timestamp": "2026-01-24T18:24:10.726753"
+    },
+    {
+      "test": "Demo Login - maria@parent.com",
+      "success": false,
+      "details": "Status: 401, Expected: 200, Error: Invalid credentials",
+      "timestamp": "2026-01-24T18:24:10.730921"
+    },
+    {
+      "test": "Demo Login - sarah@team.com",
+      "success": false,
+      "details": "Status: 401, Expected: 200, Error: Invalid credentials",
+      "timestamp": "2026-01-24T18:24:10.733080"
+    },
+    {
+      "test": "Demo Login - admin@swim.com",
+      "success": false,
+      "details": "Status: 401, Expected: 200, Error: Invalid credentials",
+      "timestamp": "2026-01-24T18:24:10.734907"
+    },
+    {
+      "test": "User Registration",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-24T18:24:10.819861"
+    },
+    {
+      "test": "Invalid Login",
+      "success": true,
+      "details": "Status: 401",
+      "timestamp": "2026-01-24T18:24:10.822449"
+    },
+    {
+      "test": "Data Seeding",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2026-01-24T18:24:10.824557"
+    }
+  ]
+}
