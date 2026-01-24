@@ -17,9 +17,9 @@ SwimQualify - Swim Performance Tracker for competitive youth swimmers to track p
 4. **Admin**: Full access including managing qualifying standards
 
 ## Technical Architecture
-- **Frontend**: React with TypeScript, Vite build tool, Recharts for graphs
-- **Backend**: Express API server (port 3001)
-- **Database**: MongoDB (migrated from PostgreSQL)
+- **Frontend**: React with TypeScript (port 3000), Recharts for graphs
+- **Backend**: FastAPI server (port 8001)
+- **Database**: MongoDB (swimqualify database)
 - **AI Features**:
   - OpenAI GPT-4o-mini for Technique Coach stroke analysis
   - Perplexity API for real-time qualifying standards research
