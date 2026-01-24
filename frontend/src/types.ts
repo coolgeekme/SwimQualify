@@ -15,9 +15,17 @@ export enum Stroke {
 }
 
 export enum Course {
-  YARDS = 'Yards',
-  METERS = 'Meters'
+  SCY = 'SCY',   // Short Course Yards (25 yard pool)
+  SCM = 'SCM',   // Short Course Meters (25 meter pool)
+  LCM = 'LCM'    // Long Course Meters (50 meter pool)
 }
+
+// Helper to get display name for course
+export const CourseDisplayName: Record<Course, string> = {
+  [Course.SCY]: 'Short Course Yards',
+  [Course.SCM]: 'Short Course Meters', 
+  [Course.LCM]: 'Long Course Meters'
+};
 
 export interface User {
   id: string;
