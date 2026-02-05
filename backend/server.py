@@ -403,7 +403,19 @@ async def research_standards(req: ResearchStandardsRequest):
                 pass
         
         if data.get("citations"):
-            citations = [{"title": f"Source {i+1}", "uri": uri} for i, uri in enumerate(data["citations"])]
+            # Extract domain name for better display
+            import re as regex
+            citations = []
+            for i, uri in enumerate(data["citations"]):
+                # Try to extract a meaningful title from the URL
+                domain_match = regex.search(r'https?://(?:www\.)?([^/]+)', uri)
+                if domain_match:
+                    domain = domain_match.group(1)
+                    # Clean up domain for display
+                    title = domain.replace('.org', '').replace('.com', '').replace('.net', '').replace('-', ' ').title()
+                else:
+                    title = f"Source {i+1}"
+                citations.append({"title": title, "uri": uri})
         
         return {"results": results, "citations": citations}
 
