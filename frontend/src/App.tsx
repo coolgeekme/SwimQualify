@@ -829,13 +829,20 @@ const App: React.FC = () => {
               </form>
 
               {groundingLinks.length > 0 && (
-                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                  <p className="text-[9px] font-black uppercase text-slate-500 mb-2">Sources</p>
+                <div className="bg-amber-900/20 p-4 rounded-xl border border-amber-600/30">
+                  <div className="flex items-start space-x-2 mb-3">
+                    <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-amber-400 mb-1">Verify Times Before Applying</p>
+                      <p className="text-[9px] text-amber-300/70">AI-researched times may contain errors. Click sources below to verify official cut times.</p>
+                    </div>
+                  </div>
+                  <p className="text-[9px] font-black uppercase text-slate-500 mb-2">Official Sources (Click to Verify)</p>
                   <div className="flex flex-wrap gap-2">
                     {groundingLinks.map((link, i) => (
-                      <a key={i} href={link.uri} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-[10px] text-blue-400 hover:text-blue-300">
-                        <ExternalLink className="w-3 h-3" />
-                        <span>{link.title}</span>
+                      <a key={i} href={link.uri} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded-lg transition-colors">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold">{link.title}</span>
                       </a>
                     ))}
                   </div>
