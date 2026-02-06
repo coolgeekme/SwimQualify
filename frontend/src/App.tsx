@@ -1312,7 +1312,10 @@ const App: React.FC = () => {
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-black italic">{currentAthlete.name.charAt(0)}</div>
             <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Profile</p><h2 className="text-2xl font-black text-slate-800 italic uppercase leading-none">{currentAthlete.name}</h2><p className="text-xs font-bold text-blue-600 mt-1">{currentAthlete.ageGroup} • {currentAthlete.gender === 'M' ? 'Male' : 'Female'}</p></div>
           </div>
-          <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-50 text-blue-600 p-3 rounded-xl hover:bg-blue-100 transition-all"><Edit3 className="w-5 h-5" /></button>
+          <div className="flex items-center space-x-2">
+            <button onClick={() => setCurrentScreen('scan-times')} className="bg-green-50 text-green-600 p-3 rounded-xl hover:bg-green-100 transition-all" title="Scan Heat Sheet"><Camera className="w-5 h-5" /></button>
+            <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-50 text-blue-600 p-3 rounded-xl hover:bg-blue-100 transition-all" title="Manage Events"><Edit3 className="w-5 h-5" /></button>
+          </div>
         </div>
         {selectedEvents.length === 0 ? <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200"><Info className="w-10 h-10 text-slate-200 mx-auto mb-4" /><p className="text-slate-500 font-bold text-sm uppercase mb-4">No events selected</p><button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Manage My Events</button></div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{selectedEvents.map(event => <DashboardCard key={event.id} event={event} bestTime={getBestTime(event.id, currentAthlete.id)} standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} />)}</div>}
       </div>
