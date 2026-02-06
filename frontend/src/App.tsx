@@ -13,7 +13,7 @@ import { formatTime, calculatePace, parseTime, getAgeGroup, getAgeGroupAtDate } 
 import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { User, Role, Athlete, TimeEntry, Event, Stroke, QualifyingStandard, WeeklyCheckIn, Course } from './types';
 
-type Screen = 'dashboard' | 'event-detail' | 'roster' | 'focus' | 'admin' | 'add-time' | 'add-athlete' | 'add-event' | 'login' | 'register' | 'manage-swimmer-events' | 'scan-times';
+type Screen = 'dashboard' | 'event-detail' | 'roster' | 'focus' | 'admin' | 'add-time' | 'add-athlete' | 'add-event' | 'login' | 'register' | 'manage-swimmer-events' | 'scan-times' | 'shared-view';
 
 interface ExtractedTime {
   swimmerName: string;
