@@ -770,10 +770,11 @@ async def create_team_share(req: TeamShareRequest, request: Request):
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
+    user_id = session.get("id")
     team_id = req.teamId or session.get("teamId", "team1")
     
-    # Check if share already exists for this team
-    existing_share = db.team_shares.find_one({"teamId": team_id, "active": True})
+    # Check if share already exists for this user
+    existing_share = db.team_shares.find_one({"createdBy": user_id, "active": True})
     if existing_share:
         return {
             "shareCode": existing_share["shareCode"],
@@ -782,12 +783,12 @@ async def create_team_share(req: TeamShareRequest, request: Request):
             "shareName": existing_share.get("shareName", "My Team")
         }
     
-    # Create new share
+    # Create new share - store userId for fetching their athletes
     share_code = generate_share_code()
     share_doc = {
         "shareCode": share_code,
         "teamId": team_id,
-        "createdBy": session.get("id"),
+        "createdBy": user_id,
         "shareName": req.shareName or "My Team",
         "created": datetime.utcnow().isoformat(),
         "active": True,
