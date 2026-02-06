@@ -380,6 +380,75 @@ Do NOT nest objects. Each value must be a simple string."""},
                 pass
         return {"insights": {}}
 
+def parse_time_to_seconds(time_str: str) -> float:
+    """Convert time string (MM:SS.ss or SS.ss) to seconds"""
+    if not time_str:
+        return 0
+    time_str = time_str.strip().replace(',', '.')
+    try:
+        if ':' in time_str:
+            parts = time_str.split(':')
+            return float(parts[0]) * 60 + float(parts[1])
+        return float(time_str)
+    except:
+        return 0
+
+def validate_and_fix_times(results: list) -> list:
+    """
+    Validation Method 1: Logical validation
+    - State times MUST be faster (lower) than Regional times
+    - Times must be within reasonable ranges for each event
+    """
+    # Reasonable time ranges by distance (in seconds) - very generous ranges
+    reasonable_ranges = {
+        25: (10, 40),      # 25 yard/meter events
+        50: (20, 90),      # 50 yard/meter events  
+        100: (45, 180),    # 100 yard/meter events
+        200: (100, 400),   # 200 yard/meter events
+        400: (220, 800),   # 400 yard/meter events
+        500: (280, 1000),  # 500 yard events
+        800: (480, 1400),  # 800 meter events
+        1000: (600, 1800), # 1000 yard events
+        1500: (900, 2400), # 1500 meter events
+        1650: (1000, 2600),# 1650 yard events
+    }
+    
+    validated_results = []
+    for r in results:
+        regional_secs = parse_time_to_seconds(r.get('regionalTimeStr', ''))
+        state_secs = parse_time_to_seconds(r.get('stateTimeStr', ''))
+        distance = r.get('distance', 50)
+        
+        # Get reasonable range for this distance
+        min_time, max_time = reasonable_ranges.get(distance, (20, 600))
+        
+        warnings = []
+        
+        # Validation 1: State must be faster than Regional
+        if regional_secs > 0 and state_secs > 0:
+            if state_secs >= regional_secs:
+                warnings.append("State time should be faster than Regional")
+                # Auto-fix: swap them
+                r['regionalTimeStr'], r['stateTimeStr'] = r['stateTimeStr'], r['regionalTimeStr']
+                regional_secs, state_secs = state_secs, regional_secs
+        
+        # Validation 2: Check if times are within reasonable range
+        if regional_secs > 0 and (regional_secs < min_time or regional_secs > max_time):
+            warnings.append(f"Regional time seems unusual for {distance} distance")
+        
+        if state_secs > 0 and (state_secs < min_time or state_secs > max_time):
+            warnings.append(f"State time seems unusual for {distance} distance")
+        
+        # Add validation status
+        r['validated'] = len(warnings) == 0
+        r['warnings'] = warnings
+        r['regionalSeconds'] = regional_secs
+        r['stateSeconds'] = state_secs
+        
+        validated_results.append(r)
+    
+    return validated_results
+
 @app.post("/api/ai/research-standards")
 async def research_standards(req: ResearchStandardsRequest):
     if not PERPLEXITY_API_KEY:
@@ -396,20 +465,49 @@ async def research_standards(req: ResearchStandardsRequest):
     season_year = int(req.season) if req.season.isdigit() else 2026
     season_description = f"{season_year - 1}-{season_year}"
     
+    # Gender display for search
+    gender_display = "Boys" if req.gender == "M" else "Girls"
+    
     async with httpx.AsyncClient() as client:
+        # VERIFICATION METHOD 1: Primary search with Perplexity
         response = await client.post(
             "https://api.perplexity.ai/chat/completions",
             headers={"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"},
             json={
                 "model": "sonar",
                 "messages": [
-                    {"role": "system", "content": "You are a helpful assistant that researches swim qualifying standards. Always return data as valid JSON arrays only, with no additional text. Course types: SCY = Short Course Yards (25 yard pool), SCM = Short Course Meters (25 meter pool), LCM = Long Course Meters (50 meter pool)."},
-                    {"role": "user", "content": f"Find the {season_description} {req.ageGroup} {req.gender} swim qualifying standards for {req.stateLocation} in {course_description}. For each event, find BOTH Regional and State cuts. Return as JSON array: [{{\"name\": string, \"distance\": number, \"stroke\": string, \"regionalTimeStr\": string, \"stateTimeStr\": string, \"ageGroup\": \"{req.ageGroup}\", \"gender\": \"{req.gender}\", \"course\": \"{req.course}\"}}]. The course value MUST be exactly \"{req.course}\", ageGroup MUST be exactly \"{req.ageGroup}\", gender MUST be exactly \"{req.gender}\". Return ONLY raw JSON."}
+                    {"role": "system", "content": """You are an expert swim coach researching official qualifying standards. 
+CRITICAL RULES:
+1. State/Championship times are ALWAYS FASTER (lower numbers) than Regional/Qualifying times
+2. Return ONLY times from official USA Swimming, state LSC, or official swim organization sources
+3. If unsure about a time, do NOT include it
+4. Times should be in format MM:SS.ss or SS.ss
+5. Return ONLY valid JSON array, no other text"""},
+                    {"role": "user", "content": f"""Find the official {season_description} USA Swimming qualifying standards for {req.stateLocation} state:
+- Age Group: {req.ageGroup} {gender_display}
+- Course: {course_description}
+
+For each standard event, provide:
+- Regional/Qualifying cut time (slower, easier to achieve)
+- State/Championship cut time (faster, harder to achieve)
+
+IMPORTANT: State times MUST be faster (lower) than Regional times.
+
+Return as JSON array: [{{
+  "name": "event name like 50 Free or 100 Breast",
+  "distance": number,
+  "stroke": "Freestyle|Backstroke|Breaststroke|Butterfly|Individual Medley",
+  "regionalTimeStr": "MM:SS.ss or SS.ss - the SLOWER qualifying time",
+  "stateTimeStr": "MM:SS.ss or SS.ss - the FASTER championship time",
+  "source": "name of official source"
+}}]
+
+Return ONLY the JSON array."""}
                 ],
-                "temperature": 0.2,
-                "max_tokens": 2048
+                "temperature": 0.1,
+                "max_tokens": 3000
             },
-            timeout=30.0
+            timeout=45.0
         )
         
         if response.status_code != 200:
@@ -434,22 +532,38 @@ async def research_standards(req: ResearchStandardsRequest):
             except:
                 pass
         
+        # VERIFICATION METHOD 2: Validate and fix times
+        results = validate_and_fix_times(results)
+        
+        # Count validation issues
+        validation_issues = sum(1 for r in results if not r.get('validated', True))
+        
         if data.get("citations"):
             # Extract domain name for better display
             import re as regex
             citations = []
             for i, uri in enumerate(data["citations"]):
-                # Try to extract a meaningful title from the URL
                 domain_match = regex.search(r'https?://(?:www\.)?([^/]+)', uri)
                 if domain_match:
                     domain = domain_match.group(1)
-                    # Clean up domain for display
                     title = domain.replace('.org', '').replace('.com', '').replace('.net', '').replace('-', ' ').title()
                 else:
                     title = f"Source {i+1}"
                 citations.append({"title": title, "uri": uri})
         
-        return {"results": results, "citations": citations, "season": req.season}
+        return {
+            "results": results, 
+            "citations": citations, 
+            "season": req.season,
+            "validationIssues": validation_issues,
+            "searchParams": {
+                "ageGroup": req.ageGroup,
+                "gender": gender_display,
+                "state": req.stateLocation,
+                "course": req.course,
+                "season": season_description
+            }
+        }
 
 @app.post("/api/ai/analyze-document")
 async def analyze_document(req: DocumentAnalyzeRequest):
