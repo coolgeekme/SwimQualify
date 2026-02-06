@@ -1542,7 +1542,7 @@ const App: React.FC = () => {
                   <Search className="w-4 h-4 text-blue-500" />
                   <p className="text-[10px] font-black uppercase text-slate-400">AI Research Standards</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <select name="ageGroup" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
                     <option value="10U">10U</option>
                     <option value="11-12">11-12</option>
@@ -1553,6 +1553,11 @@ const App: React.FC = () => {
                   <select name="gender" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
                     <option value="M">Boys</option>
                     <option value="F">Girls</option>
+                  </select>
+                  <select name="season" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                    <option value="2026">2025-2026</option>
+                    <option value="2025">2024-2025</option>
+                    <option value="2024">2023-2024</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
