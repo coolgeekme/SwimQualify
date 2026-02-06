@@ -169,6 +169,13 @@ const App: React.FC = () => {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [uploadMimeType, setUploadMimeType] = useState<string>('image/png');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Heat sheet scanning state
+  const [heatSheetPreview, setHeatSheetPreview] = useState<string | null>(null);
+  const [heatSheetMimeType, setHeatSheetMimeType] = useState<string>('image/png');
+  const [extractedTimes, setExtractedTimes] = useState<ExtractedTime[]>([]);
+  const [isExtractingTimes, setIsExtractingTimes] = useState(false);
+  const heatSheetInputRef = useRef<HTMLInputElement>(null);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
