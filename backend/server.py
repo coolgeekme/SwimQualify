@@ -476,35 +476,26 @@ async def research_standards(req: ResearchStandardsRequest):
             json={
                 "model": "sonar",
                 "messages": [
-                    {"role": "system", "content": """You are an expert swim coach researching official qualifying standards. 
-CRITICAL RULES:
-1. State/Championship times are ALWAYS FASTER (lower numbers) than Regional/Qualifying times
-2. Return ONLY times from official USA Swimming, state LSC, or official swim organization sources
-3. If unsure about a time, do NOT include it
-4. Times should be in format MM:SS.ss or SS.ss
-5. Return ONLY valid JSON array, no other text"""},
-                    {"role": "user", "content": f"""Find the official {season_description} USA Swimming qualifying standards for {req.stateLocation} state:
-- Age Group: {req.ageGroup} {gender_display}
-- Course: {course_description}
+                    {"role": "system", "content": "You are an expert at finding USA Swimming qualifying time standards. Always respond with valid JSON only. No explanations."},
+                    {"role": "user", "content": f"""Search for {season_description} season USA Swimming qualifying standards:
+State: {req.stateLocation}
+Age Group: {req.ageGroup} {gender_display}  
+Pool: {course_description}
 
-For each standard event, provide:
-- Regional/Qualifying cut time (slower, easier to achieve)
-- State/Championship cut time (faster, harder to achieve)
+Find the cut times for standard events (50 Free, 100 Free, 200 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM).
 
-IMPORTANT: State times MUST be faster (lower) than Regional times.
+For each event provide BOTH:
+- Regional/JO qualifying time (the slower/easier time to achieve)
+- State/Championship time (the faster/harder time)
 
-Return as JSON array: [{{
-  "name": "event name like 50 Free or 100 Breast",
-  "distance": number,
-  "stroke": "Freestyle|Backstroke|Breaststroke|Butterfly|Individual Medley",
-  "regionalTimeStr": "MM:SS.ss or SS.ss - the SLOWER qualifying time",
-  "stateTimeStr": "MM:SS.ss or SS.ss - the FASTER championship time",
-  "source": "name of official source"
-}}]
+IMPORTANT: State/Champs times are ALWAYS faster (smaller numbers) than Regional times.
 
-Return ONLY the JSON array."""}
+Return ONLY this JSON array format:
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"29.99","stateTimeStr":"27.49","source":"source name"}}]
+
+Return valid JSON array only, no other text."""}
                 ],
-                "temperature": 0.1,
+                "temperature": 0.2,
                 "max_tokens": 3000
             },
             timeout=45.0
