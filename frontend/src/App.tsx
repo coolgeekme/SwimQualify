@@ -826,7 +826,7 @@ const App: React.FC = () => {
   };
 
   const handleImportExtractedTimes = async () => {
-    if (!currentAthlete) return;
+    if (!currentAthlete || !currentUser) return;
     
     const selectedTimes = extractedTimes.filter(t => t.selected);
     if (selectedTimes.length === 0) {
@@ -834,36 +834,45 @@ const App: React.FC = () => {
       return;
     }
 
-    let imported = 0;
-    for (const time of selectedTimes) {
-      // Find or create matching event
-      const strokeMap: Record<string, string> = {
-        'Free': 'Freestyle', 'Freestyle': 'Freestyle',
-        'Back': 'Backstroke', 'Backstroke': 'Backstroke',
-        'Breast': 'Breaststroke', 'Breaststroke': 'Breaststroke',
-        'Fly': 'Butterfly', 'Butterfly': 'Butterfly',
-        'IM': 'Individual Medley', 'Individual Medley': 'Individual Medley'
-      };
-      const normalizedStroke = strokeMap[time.stroke] || time.stroke;
-      
-      let matchingEvent = events.find(e => 
-        e.distance === time.distance && 
-        e.stroke === normalizedStroke &&
-        e.ageGroup === currentAthlete.ageGroup
-      );
+    if (!scanMeetDetails.meetName.trim()) {
+      alert('Please enter a meet name');
+      return;
+    }
 
-      if (!matchingEvent) {
-        // Create the event
-        const newEvent = {
-          id: `e_scan_${Date.now()}_${imported}`,
-          name: time.eventName || `${time.distance} ${normalizedStroke.split(' ')[0]}`,
-          distance: time.distance,
-          stroke: normalizedStroke,
-          course: 'SCY',
-          ageGroup: currentAthlete.ageGroup
+    setIsImportingTimes(true);
+    let imported = 0;
+    const newEventIds: string[] = [];
+
+    try {
+      for (const time of selectedTimes) {
+        // Find or create matching event
+        const strokeMap: Record<string, string> = {
+          'Free': 'Freestyle', 'Freestyle': 'Freestyle',
+          'Back': 'Backstroke', 'Backstroke': 'Backstroke',
+          'Breast': 'Breaststroke', 'Breaststroke': 'Breaststroke',
+          'Fly': 'Butterfly', 'Butterfly': 'Butterfly',
+          'IM': 'Individual Medley', 'Individual Medley': 'Individual Medley'
         };
+        const normalizedStroke = strokeMap[time.stroke] || time.stroke;
         
-        try {
+        let matchingEvent = events.find(e => 
+          e.distance === time.distance && 
+          e.stroke === normalizedStroke &&
+          e.ageGroup === currentAthlete.ageGroup &&
+          e.course === scanMeetDetails.course
+        );
+
+        if (!matchingEvent) {
+          // Create the event
+          const newEvent = {
+            id: `e_scan_${Date.now()}_${imported}`,
+            name: time.eventName || `${time.distance} ${normalizedStroke.split(' ')[0]}`,
+            distance: time.distance,
+            stroke: normalizedStroke,
+            course: scanMeetDetails.course,
+            ageGroup: currentAthlete.ageGroup
+          };
+          
           const eventRes = await fetch('/api/events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
@@ -873,35 +882,35 @@ const App: React.FC = () => {
             matchingEvent = await eventRes.json();
             setEvents(prev => [...prev, matchingEvent!]);
           }
-        } catch (err) {
-          console.error('Failed to create event:', err);
-          continue;
         }
-      }
 
-      if (matchingEvent) {
-        // Parse time string to seconds
-        const parseTimeStr = (str: string): number => {
-          const parts = str.split(':');
-          if (parts.length === 2) {
-            return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+        if (matchingEvent) {
+          // Track new event IDs to add to athlete
+          if (!currentAthlete.selectedEventIds.includes(matchingEvent.id) && !newEventIds.includes(matchingEvent.id)) {
+            newEventIds.push(matchingEvent.id);
           }
-          return parseFloat(str);
-        };
 
-        const newTime = {
-          id: `t_scan_${Date.now()}_${imported}`,
-          athleteId: currentAthlete.id,
-          eventId: matchingEvent.id,
-          timeSeconds: parseTimeStr(time.timeStr),
-          course: 'SCY' as const,
-          date: time.date || new Date().toISOString().split('T')[0],
-          meetName: time.meetName || 'Imported from scan',
-          ageGroupAtTime: currentAthlete.ageGroup,
-          isDQ: false
-        };
+          // Parse time string to seconds
+          const parseTimeStr = (str: string): number => {
+            const cleaned = str.replace(/[^\d:.]/g, '');
+            const parts = cleaned.split(':');
+            if (parts.length === 2) {
+              return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+            }
+            return parseFloat(cleaned);
+          };
 
-        try {
+          const newTime = {
+            athleteId: currentAthlete.id,
+            eventId: matchingEvent.id,
+            timeSeconds: parseTimeStr(time.timeStr),
+            course: scanMeetDetails.course,
+            date: scanMeetDetails.date,
+            meetName: scanMeetDetails.meetName,
+            ageGroupAtTime: currentAthlete.ageGroup,
+            isDQ: false
+          };
+
           const timeRes = await fetch('/api/times', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
@@ -912,19 +921,40 @@ const App: React.FC = () => {
             setTimes(prev => [...prev, savedTime]);
             imported++;
           }
-        } catch (err) {
-          console.error('Failed to save time:', err);
         }
       }
-    }
 
-    if (imported > 0) {
-      alert(`Successfully imported ${imported} time(s)!`);
-      setHeatSheetPreview(null);
-      setExtractedTimes([]);
-      setCurrentScreen('dashboard');
-    } else {
-      alert('Failed to import times. Please try again.');
+      // Update athlete's selected events if we added new events
+      if (newEventIds.length > 0 && imported > 0) {
+        const updatedEventIds = [...currentAthlete.selectedEventIds, ...newEventIds];
+        const athleteRes = await fetch(`/api/athletes/${currentAthlete.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
+          body: JSON.stringify({ ...currentAthlete, selectedEventIds: updatedEventIds })
+        });
+        if (athleteRes.ok) {
+          const updatedAthlete = await athleteRes.json();
+          setAthletes(prev => prev.map(a => a.id === updatedAthlete.id ? updatedAthlete : a));
+        }
+      }
+
+      if (imported > 0) {
+        setHeatSheetPreview(null);
+        setExtractedTimes([]);
+        setScanMeetDetails({ meetName: '', date: new Date().toISOString().split('T')[0], course: 'SCY' });
+        setCurrentScreen('dashboard');
+        // Small delay to let state update
+        setTimeout(() => {
+          alert(`Successfully imported ${imported} time(s)!`);
+        }, 100);
+      } else {
+        alert('Failed to import times. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to import times:', err);
+      alert('An error occurred while importing times.');
+    } finally {
+      setIsImportingTimes(false);
     }
   };
 
