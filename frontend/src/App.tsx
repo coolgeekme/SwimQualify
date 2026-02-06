@@ -173,11 +173,11 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Heat sheet scanning state
-  const [heatSheetPreview, setHeatSheetPreview] = useState<string | null>(null);
-  const [heatSheetMimeType, setHeatSheetMimeType] = useState<string>('image/png');
+  const [heatSheetPreviews, setHeatSheetPreviews] = useState<{data: string, mimeType: string, name: string}[]>([]);
   const [extractedTimes, setExtractedTimes] = useState<ExtractedTime[]>([]);
   const [isExtractingTimes, setIsExtractingTimes] = useState(false);
   const [isImportingTimes, setIsImportingTimes] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState<{current: number, total: number} | null>(null);
   const [scanMeetDetails, setScanMeetDetails] = useState<{ meetName: string; date: string; course: string }>({
     meetName: '',
     date: new Date().toISOString().split('T')[0],
