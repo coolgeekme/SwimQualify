@@ -39,6 +39,11 @@ interface ResearchResult {
   distance?: number;
   stroke?: Stroke;
   season?: string;
+  source?: string;
+  validated?: boolean;
+  warnings?: string[];
+  regionalSeconds?: number;
+  stateSeconds?: number;
 }
 
 const STORAGE_KEYS = {
