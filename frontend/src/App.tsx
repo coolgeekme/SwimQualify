@@ -1711,7 +1711,68 @@ const App: React.FC = () => {
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <input name="stateLocation" type="text" placeholder="State (e.g. Texas, California)" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white placeholder:text-slate-600" />
+                  <select name="stateLocation" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
+                    <option value="">Select LSC...</option>
+                    <option value="Adirondack Swimming (AD)">Adirondack (AD)</option>
+                    <option value="Alaska Swimming (AK)">Alaska (AK)</option>
+                    <option value="Allegheny Mountain Swimming (AM)">Allegheny Mountain (AM)</option>
+                    <option value="Arizona Swimming (AZ)">Arizona (AZ)</option>
+                    <option value="Arkansas Swimming (AR)">Arkansas (AR)</option>
+                    <option value="Border Swimming (BD)">Border (BD)</option>
+                    <option value="Central California Swimming (CC)">Central California (CC)</option>
+                    <option value="Colorado Swimming (CO)">Colorado (CO)</option>
+                    <option value="Connecticut Swimming (CT)">Connecticut (CT)</option>
+                    <option value="Florida Gold Coast Swimming (FG)">Florida Gold Coast (FG)</option>
+                    <option value="Florida Swimming (FL)">Florida (FL)</option>
+                    <option value="Georgia Swimming (GA)">Georgia (GA)</option>
+                    <option value="Gulf Swimming (GU)">Gulf (GU)</option>
+                    <option value="Hawaiian Swimming (HI)">Hawaiian (HI)</option>
+                    <option value="Illinois Swimming (IL)">Illinois (IL)</option>
+                    <option value="Indiana Swimming (IN)">Indiana (IN)</option>
+                    <option value="Inland Empire Swimming (IE)">Inland Empire (IE)</option>
+                    <option value="Iowa Swimming (IA)">Iowa (IA)</option>
+                    <option value="Kentucky Swimming (KY)">Kentucky (KY)</option>
+                    <option value="Lake Erie Swimming (LE)">Lake Erie (LE)</option>
+                    <option value="Louisiana Swimming (LA)">Louisiana (LA)</option>
+                    <option value="Maine Swimming (ME)">Maine (ME)</option>
+                    <option value="Maryland Swimming (MD)">Maryland (MD)</option>
+                    <option value="Metropolitan Swimming (MR)">Metropolitan (MR)</option>
+                    <option value="Michigan Swimming (MI)">Michigan (MI)</option>
+                    <option value="Middle Atlantic Swimming (MA)">Middle Atlantic (MA)</option>
+                    <option value="Midwestern Swimming (MW)">Midwestern (MW)</option>
+                    <option value="Minnesota Swimming (MN)">Minnesota (MN)</option>
+                    <option value="Mississippi Swimming (MS)">Mississippi (MS)</option>
+                    <option value="Missouri Valley Swimming (MV)">Missouri Valley (MV)</option>
+                    <option value="Montana Swimming (MT)">Montana (MT)</option>
+                    <option value="New England Swimming (NE)">New England (NE)</option>
+                    <option value="New Jersey Swimming (NJ)">New Jersey (NJ)</option>
+                    <option value="New Mexico Swimming (NM)">New Mexico (NM)</option>
+                    <option value="Niagara Swimming (NI)">Niagara (NI)</option>
+                    <option value="North Carolina Swimming (NC)">North Carolina (NC)</option>
+                    <option value="North Dakota Swimming (ND)">North Dakota (ND)</option>
+                    <option value="North Texas Swimming (NT)">North Texas (NT)</option>
+                    <option value="Ohio Swimming (OH)">Ohio (OH)</option>
+                    <option value="Oklahoma Swimming (OK)">Oklahoma (OK)</option>
+                    <option value="Oregon Swimming (OR)">Oregon (OR)</option>
+                    <option value="Ozark Swimming (OZ)">Ozark (OZ)</option>
+                    <option value="Pacific Northwest Swimming (PN)">Pacific Northwest (PN)</option>
+                    <option value="Pacific Swimming (PC)">Pacific (PC)</option>
+                    <option value="Potomac Valley Swimming (PV)">Potomac Valley (PV)</option>
+                    <option value="San Diego Imperial Swimming (SI)">San Diego Imperial (SI)</option>
+                    <option value="Sierra Nevada Swimming (SN)">Sierra Nevada (SN)</option>
+                    <option value="Snake River Swimming (SR)">Snake River (SR)</option>
+                    <option value="South Carolina Swimming (SC)">South Carolina (SC)</option>
+                    <option value="South Dakota Swimming (SD)">South Dakota (SD)</option>
+                    <option value="South Texas Swimming (ST)">South Texas (ST)</option>
+                    <option value="Southeastern Swimming (SE)">Southeastern (SE)</option>
+                    <option value="Southern California Swimming (CA)">Southern California (CA)</option>
+                    <option value="Utah Swimming (UT)">Utah (UT)</option>
+                    <option value="Virginia Swimming (VA)">Virginia (VA)</option>
+                    <option value="West Texas Swimming (WT)">West Texas (WT)</option>
+                    <option value="West Virginia Swimming (WV)">West Virginia (WV)</option>
+                    <option value="Wisconsin Swimming (WI)">Wisconsin (WI)</option>
+                    <option value="Wyoming Swimming (WY)">Wyoming (WY)</option>
+                  </select>
                   <select name="course" required className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-white">
                     <option value={Course.SCY}>SCY (Short Course Yards)</option>
                     <option value={Course.SCM}>SCM (Short Course Meters)</option>
