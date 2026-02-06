@@ -746,8 +746,8 @@ const App: React.FC = () => {
     }
   };
 
-  // Stroke guide data for parents and fans
-  const strokeGuide: Record<string, { description: string; whatToWatch: string[]; keyMoments: string[] }> = {
+  // Stroke guide data for parents and fans with video links
+  const strokeGuide: Record<string, { description: string; whatToWatch: string[]; keyMoments: string[]; videos: { title: string; url: string; source: string }[] }> = {
     'Freestyle': {
       description: 'The fastest and most common stroke. Swimmers alternate arm strokes while flutter kicking, breathing to the side.',
       whatToWatch: [
@@ -757,7 +757,12 @@ const App: React.FC = () => {
         'Watch for bilateral breathing (both sides) in longer events',
         'Streamline off the walls - tight body position underwater'
       ],
-      keyMoments: ['Start/dive entry', 'Flip turns at walls', 'Final sprint to the finish', 'Breathing pattern']
+      keyMoments: ['Start/dive entry', 'Flip turns at walls', 'Final sprint to the finish', 'Breathing pattern'],
+      videos: [
+        { title: 'Freestyle Technique - Full Stroke', url: 'https://www.youtube.com/watch?v=5HLW2AI1Ink', source: 'USA Swimming' },
+        { title: 'How to Swim Freestyle', url: 'https://www.youtube.com/watch?v=wMPIERLNu_s', source: 'MySwimPro' },
+        { title: 'Freestyle Flip Turn Tutorial', url: 'https://www.youtube.com/watch?v=hKxjRUMl8_I', source: 'Skills NT' }
+      ]
     },
     'Backstroke': {
       description: 'The only stroke swum on the back. Swimmers alternate arms while flutter kicking, starting in the water.',
@@ -768,7 +773,12 @@ const App: React.FC = () => {
         'Consistent kick tempo throughout',
         'Backstroke flags (5 meters out) help swimmers know when to flip'
       ],
-      keyMoments: ['Backstroke start (in water, pushing off wall)', 'Backstroke flip turn', 'Finish - must touch on back']
+      keyMoments: ['Backstroke start (in water, pushing off wall)', 'Backstroke flip turn', 'Finish - must touch on back'],
+      videos: [
+        { title: 'Backstroke Technique', url: 'https://www.youtube.com/watch?v=pFkCXgBqNJc', source: 'USA Swimming' },
+        { title: 'How to Swim Backstroke', url: 'https://www.youtube.com/watch?v=cZvdUWrGmQg', source: 'MySwimPro' },
+        { title: 'Backstroke Start & Turn', url: 'https://www.youtube.com/watch?v=jJdZ1X8Fy3w', source: 'Skills NT' }
+      ]
     },
     'Breaststroke': {
       description: 'A slower, technical stroke with a frog-like kick. Arms and legs move symmetrically.',
@@ -779,7 +789,12 @@ const App: React.FC = () => {
         'Arms must stay in front of the shoulders (no pulling past the waist)',
         'Underwater pullout after each wall - one pull, one kick allowed'
       ],
-      keyMoments: ['Underwater pullout (huge time saver)', 'Two-hand touch at walls and finish', 'Kick timing and power']
+      keyMoments: ['Underwater pullout (huge time saver)', 'Two-hand touch at walls and finish', 'Kick timing and power'],
+      videos: [
+        { title: 'Breaststroke Technique', url: 'https://www.youtube.com/watch?v=JvPLSiyWblg', source: 'USA Swimming' },
+        { title: 'How to Swim Breaststroke', url: 'https://www.youtube.com/watch?v=g6gDFDQvlg4', source: 'MySwimPro' },
+        { title: 'Breaststroke Pullout Tutorial', url: 'https://www.youtube.com/watch?v=qWTXw8xdjas', source: 'Skills NT' }
+      ]
     },
     'Butterfly': {
       description: 'The most physically demanding stroke. Both arms move together with a dolphin kick.',
@@ -790,7 +805,12 @@ const App: React.FC = () => {
         'Breathing forward, chin stays near the water',
         'Underwater dolphin kicks off walls'
       ],
-      keyMoments: ['Underwater dolphin kicks (can be very fast)', 'Two-hand touch required', 'Maintaining stroke through fatigue']
+      keyMoments: ['Underwater dolphin kicks (can be very fast)', 'Two-hand touch required', 'Maintaining stroke through fatigue'],
+      videos: [
+        { title: 'Butterfly Technique', url: 'https://www.youtube.com/watch?v=PifVc2ZSXZM', source: 'USA Swimming' },
+        { title: 'How to Swim Butterfly', url: 'https://www.youtube.com/watch?v=cEm0_AdPzQY', source: 'MySwimPro' },
+        { title: 'Dolphin Kick Underwater', url: 'https://www.youtube.com/watch?v=oHYvPBpBv0c', source: 'Skills NT' }
+      ]
     },
     'Individual Medley': {
       description: 'All four strokes in one race: Butterfly, Backstroke, Breaststroke, Freestyle - in that order.',
@@ -801,7 +821,12 @@ const App: React.FC = () => {
         'Breast to Free: two hand touch, then go',
         'Pacing - watch for even splits or negative splitting'
       ],
-      keyMoments: ['Stroke transitions at each 25/50', 'Maintaining technique when tired', 'Freestyle finish push']
+      keyMoments: ['Stroke transitions at each 25/50', 'Maintaining technique when tired', 'Freestyle finish push'],
+      videos: [
+        { title: 'IM Transitions Guide', url: 'https://www.youtube.com/watch?v=BrKXmtmFINg', source: 'USA Swimming' },
+        { title: 'How to Swim the IM', url: 'https://www.youtube.com/watch?v=_vuPqjp8_NI', source: 'MySwimPro' },
+        { title: 'IM Race Strategy', url: 'https://www.youtube.com/watch?v=7wj_LxnvJ5k', source: 'SwimSwam' }
+      ]
     }
   };
 
