@@ -1013,7 +1013,7 @@ const App: React.FC = () => {
       }
 
       if (imported > 0) {
-        setHeatSheetPreview(null);
+        setHeatSheetPreviews([]);
         setExtractedTimes([]);
         setScanMeetDetails({ meetName: '', date: new Date().toISOString().split('T')[0], course: 'SCY' });
         setCurrentScreen('dashboard');
