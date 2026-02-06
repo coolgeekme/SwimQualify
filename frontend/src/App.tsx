@@ -398,7 +398,9 @@ const App: React.FC = () => {
     const normalizedCourse = normalizeCourse(res.course);
     const genderVal: 'M' | 'F' = (res.gender === 'Women' || res.gender === 'F' || res.gender === 'Girls' ? 'F' : 'M');
     const ageVal = res.ageGroup || '11-12';
+    const seasonVal = res.season || '2026';
 
+    // Find or create event specific to this age group
     let existingEvent = events.find(e => 
       e.name.toLowerCase() === res.name.toLowerCase() && 
       e.course === normalizedCourse &&
@@ -410,8 +412,9 @@ const App: React.FC = () => {
     if (existingEvent) {
       eventId = existingEvent.id;
     } else {
+      // Create event specific to this age group - this ensures swimmers only see events for their age bracket
       const newEvent: Event = {
-        id: `e-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `e-ai-${ageVal}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: res.name,
         distance: res.distance || 50,
         stroke: res.stroke || Stroke.FREE,
@@ -445,7 +448,7 @@ const App: React.FC = () => {
       newStandards.push({
         id: `s-reg-${Date.now()}-${Math.random()}`,
         eventId, region: 'Regional', ageGroup: ageVal, gender: genderVal, course: normalizedCourse,
-        cutTimeSeconds: parseTime(res.regionalTimeStr), season: '2025'
+        cutTimeSeconds: parseTime(res.regionalTimeStr), season: seasonVal
       });
     }
 
@@ -453,7 +456,7 @@ const App: React.FC = () => {
       newStandards.push({
         id: `s-state-${Date.now()}-${Math.random()}`,
         eventId, region: 'State', ageGroup: ageVal, gender: genderVal, course: normalizedCourse,
-        cutTimeSeconds: parseTime(res.stateTimeStr), season: '2025'
+        cutTimeSeconds: parseTime(res.stateTimeStr), season: seasonVal
       });
     }
 
