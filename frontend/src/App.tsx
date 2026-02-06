@@ -847,40 +847,55 @@ const App: React.FC = () => {
   };
 
   const handleExtractTimes = async () => {
-    if (!heatSheetPreview || !currentAthlete) return;
+    if (heatSheetPreviews.length === 0 || !currentAthlete) return;
     
     setIsExtractingTimes(true);
+    setExtractionProgress({ current: 0, total: heatSheetPreviews.length });
+    const allExtractedTimes: ExtractedTime[] = [];
+    
     try {
-      const base64Data = heatSheetPreview.split(',')[1];
-      
-      const response = await fetch('/api/ai/extract-heat-times', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-User-Session': JSON.stringify(currentUser)
-        },
-        body: JSON.stringify({
-          imageData: base64Data,
-          mimeType: heatSheetMimeType,
-          swimmerName: currentAthlete.name
-        })
-      });
+      for (let i = 0; i < heatSheetPreviews.length; i++) {
+        setExtractionProgress({ current: i + 1, total: heatSheetPreviews.length });
+        const preview = heatSheetPreviews[i];
+        const base64Data = preview.data.split(',')[1];
+        
+        const response = await fetch('/api/ai/extract-heat-times', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-User-Session': JSON.stringify(currentUser)
+          },
+          body: JSON.stringify({
+            imageData: base64Data,
+            mimeType: preview.mimeType,
+            swimmerName: currentAthlete.name
+          })
+        });
 
-      if (!response.ok) throw new Error('Failed to extract times');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.times) {
+            const timesWithSelection = data.times.map((t: ExtractedTime) => ({ 
+              ...t, 
+              selected: true,
+              sourceImage: preview.name 
+            }));
+            allExtractedTimes.push(...timesWithSelection);
+          }
+        }
+      }
       
-      const data = await response.json();
-      if (data.success && data.times) {
-        // Mark all times as selected by default
-        const timesWithSelection = data.times.map((t: ExtractedTime) => ({ ...t, selected: true }));
-        setExtractedTimes(timesWithSelection);
+      if (allExtractedTimes.length > 0) {
+        setExtractedTimes(allExtractedTimes);
       } else {
-        alert(data.error || 'No times found in image');
+        alert('No times found in the uploaded images');
       }
     } catch (err) {
       console.error('Failed to extract times:', err);
-      alert('Failed to extract times from image. Please try again.');
+      alert('Failed to extract times from images. Please try again.');
     } finally {
       setIsExtractingTimes(false);
+      setExtractionProgress(null);
     }
   };
 
