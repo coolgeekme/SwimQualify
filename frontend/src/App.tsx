@@ -818,16 +818,32 @@ const App: React.FC = () => {
 
   // Heat sheet scanning handlers
   const handleHeatSheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     
-    setHeatSheetMimeType(file.type);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setHeatSheetPreview(event.target?.result as string);
-      setExtractedTimes([]);
-    };
-    reader.readAsDataURL(file);
+    const newPreviews: {data: string, mimeType: string, name: string}[] = [];
+    let loaded = 0;
+    
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        newPreviews.push({
+          data: event.target?.result as string,
+          mimeType: file.type,
+          name: file.name
+        });
+        loaded++;
+        if (loaded === files.length) {
+          setHeatSheetPreviews(prev => [...prev, ...newPreviews]);
+          setExtractedTimes([]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeHeatSheetImage = (index: number) => {
+    setHeatSheetPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleExtractTimes = async () => {
