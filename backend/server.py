@@ -481,6 +481,75 @@ async def analyze_document(req: DocumentAnalyzeRequest):
             return {"results": json.loads(json_match.group(0))}
         return {"results": [], "error": "No standards found in document"}
 
+class HeatSheetAnalyzeRequest(BaseModel):
+    imageData: str
+    mimeType: str = "image/png"
+    swimmerName: Optional[str] = None
+
+@app.post("/api/ai/extract-heat-times")
+async def extract_heat_times(req: HeatSheetAnalyzeRequest):
+    """Extract swim times from a heat sheet screenshot"""
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    
+    swimmer_context = f" Focus on finding times for swimmer: {req.swimmerName}." if req.swimmerName else ""
+    
+    prompt = f"""Analyze this swim meet heat sheet or results image and extract ALL swim times you can find.{swimmer_context}
+
+Return a JSON array of objects with the following structure:
+[{{
+  "swimmerName": "Name from the sheet",
+  "eventName": "50 Free" or "100 Back" etc,
+  "distance": 50 or 100 etc (number),
+  "stroke": "Freestyle" or "Backstroke" or "Breaststroke" or "Butterfly" or "Individual Medley",
+  "timeStr": "28.45" or "1:05.32" (the actual time shown),
+  "place": 1 or 2 etc (if shown, otherwise null),
+  "heat": 3 (if shown, otherwise null),
+  "lane": 4 (if shown, otherwise null),
+  "meetName": "Meet name if visible" (otherwise null),
+  "date": "2024-01-15" (if visible, otherwise null)
+}}]
+
+Important:
+- Extract ALL times visible in the image
+- Times can be in format SS.XX (seconds) or M:SS.XX (minutes:seconds)
+- Common strokes: Free/Freestyle, Back/Backstroke, Breast/Breaststroke, Fly/Butterfly, IM/Individual Medley
+- Return ONLY the raw JSON array, no other text"""
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{OPENAI_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "gpt-4o",
+                "messages": [
+                    {"role": "user", "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:{req.mimeType};base64,{req.imageData}", "detail": "high"}}
+                    ]}
+                ],
+                "max_tokens": 4096
+            },
+            timeout=90.0
+        )
+        
+        if response.status_code != 200:
+            error_detail = response.text
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {error_detail}")
+        
+        data = response.json()
+        text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        
+        import re, json
+        json_match = re.search(r'\[.*\]', text, re.DOTALL)
+        if json_match:
+            try:
+                results = json.loads(json_match.group(0))
+                return {"success": True, "times": results, "count": len(results)}
+            except json.JSONDecodeError as e:
+                return {"success": False, "times": [], "error": f"Failed to parse results: {str(e)}"}
+        return {"success": False, "times": [], "error": "No times found in image"}
+
 # Health check
 @app.get("/api/health")
 async def health():
