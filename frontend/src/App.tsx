@@ -38,6 +38,7 @@ interface ResearchResult {
   course?: Course;
   distance?: number;
   stroke?: Stroke;
+  season?: string;
 }
 
 const STORAGE_KEYS = {
