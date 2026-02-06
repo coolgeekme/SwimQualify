@@ -1614,34 +1614,82 @@ const App: React.FC = () => {
 
               {researchResults.length > 0 && (
                 <div className="space-y-3">
+                  {/* Validation Summary */}
+                  {researchResults.some(r => !r.validated) && (
+                    <div className="bg-red-900/30 p-3 rounded-xl border border-red-600/50 flex items-start space-x-2">
+                      <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-red-400">Validation Issues Detected</p>
+                        <p className="text-[9px] text-red-300/70">Some times were auto-corrected (State must be faster than Regional). Please verify before applying.</p>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
+                      <p className="text-[8px] text-slate-500">{researchResults.filter(r => r.validated).length} verified • {researchResults.filter(r => !r.validated).length} need review</p>
+                    </div>
                     <button onClick={handleApplyResults} disabled={isApplyingResults} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1 disabled:opacity-50">
                       {isApplyingResults ? <><RefreshCw className="w-3 h-3 animate-spin" /><span>Applying...</span></> : <><Save className="w-3 h-3" /><span>Apply All</span></>}
                     </button>
                   </div>
-                  <div className="max-h-72 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                  
+                  <div className="max-h-80 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                     {researchResults.map((res, i) => (
-                      <div key={i} className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 flex justify-between items-center">
-                        <div>
-                          <p className="font-bold text-sm">{res.name}</p>
-                          <p className="text-[9px] text-slate-500 font-black uppercase">{res.ageGroup} • {res.gender}</p>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <p className="text-[8px] font-black uppercase text-slate-500">Regional</p>
-                            <p className="font-mono text-blue-400 font-bold text-xs">{res.regionalTimeStr || '-'}</p>
+                      <div key={i} className={`p-3 rounded-xl border flex flex-col space-y-2 ${
+                        res.validated 
+                          ? 'bg-slate-800/40 border-slate-700/50' 
+                          : 'bg-amber-900/20 border-amber-600/50'
+                      }`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center space-x-2">
+                            {res.validated ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                            )}
+                            <div>
+                              <p className="font-bold text-sm">{res.name}</p>
+                              <p className="text-[9px] text-slate-500 font-black uppercase">{res.ageGroup} • {res.gender === 'M' ? 'Boys' : 'Girls'} • {res.distance}y</p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-[8px] font-black uppercase text-slate-500">State</p>
-                            <p className="font-mono text-green-400 font-bold text-xs">{res.stateTimeStr || '-'}</p>
+                          <div className="flex items-center space-x-3">
+                            <div className="text-right">
+                              <p className="text-[8px] font-black uppercase text-blue-400">Regional (slower)</p>
+                              <p className="font-mono text-blue-300 font-bold text-sm">{res.regionalTimeStr || '-'}</p>
+                            </div>
+                            <div className="text-center text-slate-600">→</div>
+                            <div className="text-right">
+                              <p className="text-[8px] font-black uppercase text-green-400">State (faster)</p>
+                              <p className="font-mono text-green-300 font-bold text-sm">{res.stateTimeStr || '-'}</p>
+                            </div>
+                            <button onClick={() => syncSingleResult(res)} className="bg-blue-600/20 hover:bg-blue-600/40 p-2 rounded-lg transition-all ml-2">
+                              <Plus className="w-4 h-4 text-blue-400" />
+                            </button>
                           </div>
-                          <button onClick={() => syncSingleResult(res)} className="bg-blue-600/20 hover:bg-blue-600/40 p-2 rounded-lg transition-all">
-                            <Plus className="w-4 h-4 text-blue-400" />
-                          </button>
                         </div>
+                        {res.warnings && res.warnings.length > 0 && (
+                          <div className="bg-amber-900/30 px-2 py-1 rounded text-[9px] text-amber-300">
+                            ⚠️ {res.warnings.join(' • ')}
+                          </div>
+                        )}
+                        {res.source && (
+                          <p className="text-[8px] text-slate-500">Source: {res.source}</p>
+                        )}
                       </div>
                     ))}
+                  </div>
+                  
+                  {/* Manual Verification Reminder */}
+                  <div className="bg-blue-900/20 p-3 rounded-xl border border-blue-600/30 mt-4">
+                    <div className="flex items-start space-x-2">
+                      <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-blue-400">Manual Verification Recommended</p>
+                        <p className="text-[9px] text-blue-300/70">Always verify times against official sources above before applying. AI research may contain errors.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
