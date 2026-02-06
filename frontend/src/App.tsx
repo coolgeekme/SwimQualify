@@ -1221,9 +1221,6 @@ const App: React.FC = () => {
               )}
             </div>
           )}
-              )}
-            </div>
-          )}
         </div>
 
         {/* Extracted Times */}
