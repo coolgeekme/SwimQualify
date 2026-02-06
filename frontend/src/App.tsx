@@ -866,6 +866,37 @@ const App: React.FC = () => {
     setHeatSheetPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Helper to match extracted event to app events
+  const matchExtractedEventToApp = (extractedTime: ExtractedTime): { matchedName: string; confidence: 'high' | 'medium' | 'low' } => {
+    const strokeMap: Record<string, string> = {
+      'Free': 'Freestyle', 'Freestyle': 'Freestyle', 'FR': 'Freestyle',
+      'Back': 'Backstroke', 'Backstroke': 'Backstroke', 'BK': 'Backstroke',
+      'Breast': 'Breaststroke', 'Breaststroke': 'Breaststroke', 'BR': 'Breaststroke',
+      'Fly': 'Butterfly', 'Butterfly': 'Butterfly', 'FL': 'Butterfly',
+      'IM': 'Individual Medley', 'Individual Medley': 'Individual Medley', 'I.M.': 'Individual Medley'
+    };
+    
+    const normalizedStroke = strokeMap[extractedTime.stroke] || extractedTime.stroke;
+    
+    // Try to find exact match
+    const exactMatch = events.find(e => 
+      e.distance === extractedTime.distance && 
+      e.stroke === normalizedStroke
+    );
+    
+    if (exactMatch) {
+      return { matchedName: exactMatch.name, confidence: 'high' };
+    }
+    
+    // Try partial match by distance
+    const distanceMatch = events.find(e => e.distance === extractedTime.distance);
+    if (distanceMatch) {
+      return { matchedName: `${extractedTime.distance} ${extractedTime.stroke}`, confidence: 'medium' };
+    }
+    
+    return { matchedName: extractedTime.eventName, confidence: 'low' };
+  };
+
   const handleExtractTimes = async () => {
     if (heatSheetPreviews.length === 0 || !currentAthlete) return;
     
@@ -895,12 +926,17 @@ const App: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.times) {
-            const timesWithSelection = data.times.map((t: ExtractedTime) => ({ 
-              ...t, 
-              selected: true,
-              sourceImage: preview.name 
-            }));
-            allExtractedTimes.push(...timesWithSelection);
+            // Process each time and match to app events
+            const timesWithMatching = data.times.map((t: ExtractedTime) => {
+              const match = matchExtractedEventToApp(t);
+              return { 
+                ...t, 
+                selected: t.swimmerName?.toLowerCase().includes(currentAthlete.name.toLowerCase().split(' ')[0]) || false,
+                matchedEventName: match.matchedName,
+                matchConfidence: match.confidence
+              };
+            });
+            allExtractedTimes.push(...timesWithMatching);
           }
         }
       }
