@@ -753,6 +753,122 @@ def normalize_stroke_name(stroke: str) -> str:
     else:
         return "Freestyle"
 
+# ==================== TEAM SHARING ====================
+
+import secrets
+import string
+
+def generate_share_code(length=8):
+    """Generate a unique share code"""
+    chars = string.ascii_lowercase + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(length))
+
+@app.post("/api/teams/share")
+async def create_team_share(req: TeamShareRequest, request: Request):
+    """Create a shareable link for a team"""
+    session = get_session(request.headers.get("x-user-session"))
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    team_id = req.teamId or session.get("teamId", "team1")
+    
+    # Check if share already exists for this team
+    existing_share = db.team_shares.find_one({"teamId": team_id, "active": True})
+    if existing_share:
+        return {
+            "shareCode": existing_share["shareCode"],
+            "shareUrl": f"/share/{existing_share['shareCode']}",
+            "created": existing_share.get("created"),
+            "shareName": existing_share.get("shareName", "My Team")
+        }
+    
+    # Create new share
+    share_code = generate_share_code()
+    share_doc = {
+        "shareCode": share_code,
+        "teamId": team_id,
+        "createdBy": session.get("id"),
+        "shareName": req.shareName or "My Team",
+        "created": datetime.utcnow().isoformat(),
+        "active": True,
+        "viewCount": 0
+    }
+    
+    db.team_shares.insert_one(share_doc)
+    
+    return {
+        "shareCode": share_code,
+        "shareUrl": f"/share/{share_code}",
+        "created": share_doc["created"],
+        "shareName": share_doc["shareName"]
+    }
+
+@app.get("/api/teams/share/{share_code}")
+async def get_shared_team(share_code: str):
+    """Get team data for a shared link (public - no auth required)"""
+    share = db.team_shares.find_one({"shareCode": share_code, "active": True})
+    if not share:
+        raise HTTPException(status_code=404, detail="Share link not found or expired")
+    
+    team_id = share["teamId"]
+    
+    # Increment view count
+    db.team_shares.update_one({"shareCode": share_code}, {"$inc": {"viewCount": 1}})
+    
+    # Get team data
+    athletes = list(db.athletes.find({"teamId": team_id}, {"_id": 0}))
+    
+    # Get times for all athletes
+    athlete_ids = [a["id"] for a in athletes]
+    times = list(db.times.find({"athleteId": {"$in": athlete_ids}}, {"_id": 0}))
+    
+    # Get events
+    events = list(db.events.find({}, {"_id": 0}))
+    
+    # Get standards
+    standards = list(db.standards.find({}, {"_id": 0}))
+    
+    return {
+        "shareName": share.get("shareName", "Shared Team"),
+        "teamId": team_id,
+        "athletes": athletes,
+        "times": times,
+        "events": events,
+        "standards": standards,
+        "viewCount": share.get("viewCount", 0) + 1
+    }
+
+@app.delete("/api/teams/share/{share_code}")
+async def delete_team_share(share_code: str, request: Request):
+    """Deactivate a share link"""
+    session = get_session(request.headers.get("x-user-session"))
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    result = db.team_shares.update_one(
+        {"shareCode": share_code, "createdBy": session.get("id")},
+        {"$set": {"active": False}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    
+    return {"success": True}
+
+@app.get("/api/teams/my-shares")
+async def get_my_shares(request: Request):
+    """Get all share links created by the current user"""
+    session = get_session(request.headers.get("x-user-session"))
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    shares = list(db.team_shares.find(
+        {"createdBy": session.get("id"), "active": True},
+        {"_id": 0}
+    ))
+    
+    return {"shares": shares}
+
 # Health check
 @app.get("/api/health")
 async def health():
