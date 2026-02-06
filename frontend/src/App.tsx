@@ -2122,6 +2122,11 @@ const App: React.FC = () => {
     </div>
   );
 
+  // If viewing shared team, render that without requiring login
+  if (currentScreen === 'shared-view') {
+    return renderSharedView();
+  }
+
   return (
     <Layout 
       activeTab={activeTab} 
@@ -2131,6 +2136,69 @@ const App: React.FC = () => {
       onLogout={handleLogout}
     >
       {getContent()}
+      
+      {/* Share Modal */}
+      {showShareModal && shareLink && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-2 rounded-xl">
+                  <Share2 className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 italic uppercase">Share Team</h3>
+              </div>
+              <button onClick={() => setShowShareModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-slate-500 mb-4">Anyone with this link can view your team's swimmers and their times (read-only).</p>
+            
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4">
+              <div className="flex items-center space-x-2">
+                <Link className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <input 
+                  type="text" 
+                  value={shareLink} 
+                  readOnly 
+                  className="flex-1 bg-transparent text-sm font-mono text-slate-700 outline-none truncate"
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button 
+                onClick={handleCopyShareLink}
+                className={`flex-1 py-3 rounded-xl font-black uppercase text-xs flex items-center justify-center space-x-2 transition-all ${
+                  copiedLink 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-blue-600 text-white hover:bg-blue-500'
+                }`}
+              >
+                {copiedLink ? (
+                  <><CheckCircle2 className="w-4 h-4" /><span>Copied!</span></>
+                ) : (
+                  <><Copy className="w-4 h-4" /><span>Copy Link</span></>
+                )}
+              </button>
+              <a 
+                href={`mailto:?subject=Check out our swim team!&body=View our team's times and progress: ${shareLink}`}
+                className="flex-1 py-3 rounded-xl font-black uppercase text-xs flex items-center justify-center space-x-2 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
+              >
+                <Mail className="w-4 h-4" />
+                <span>Email</span>
+              </a>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-[10px] text-slate-400 text-center">
+                Share code: <span className="font-mono font-bold">{shareCode}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
