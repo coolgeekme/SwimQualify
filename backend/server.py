@@ -105,6 +105,10 @@ class DocumentAnalyzeRequest(BaseModel):
     imageData: str
     mimeType: str = "image/png"
 
+class TeamShareRequest(BaseModel):
+    teamId: str
+    shareName: Optional[str] = None
+
 def strip_mongo_id(doc):
     if doc is None:
         return None
