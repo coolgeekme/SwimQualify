@@ -1325,16 +1325,30 @@ const App: React.FC = () => {
             {/* Extracted Times List */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-black text-slate-900 uppercase">Extracted Times ({extractedTimes.length})</h4>
-                <button 
-                  onClick={() => setExtractedTimes(prev => prev.map(t => ({ ...t, selected: !prev.every(x => x.selected) })))}
-                  className="text-xs font-bold text-blue-600 uppercase"
-                >
-                  {extractedTimes.every(t => t.selected) ? 'Deselect All' : 'Select All'}
-                </button>
+                <div>
+                  <h4 className="text-lg font-black text-slate-900 uppercase">Extracted Times ({extractedTimes.length})</h4>
+                  <p className="text-[10px] text-slate-500">{extractedTimes.filter(t => t.selected).length} selected • Times for {currentAthlete?.name} auto-selected</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={() => setExtractedTimes(prev => prev.map(t => ({ 
+                      ...t, 
+                      selected: t.swimmerName?.toLowerCase().includes(currentAthlete?.name.toLowerCase().split(' ')[0] || '') 
+                    })))}
+                    className="text-[10px] font-bold text-purple-600 uppercase px-2 py-1 bg-purple-50 rounded"
+                  >
+                    Select {currentAthlete?.name.split(' ')[0]}'s
+                  </button>
+                  <button 
+                    onClick={() => setExtractedTimes(prev => prev.map(t => ({ ...t, selected: !prev.every(x => x.selected) })))}
+                    className="text-[10px] font-bold text-blue-600 uppercase px-2 py-1 bg-blue-50 rounded"
+                  >
+                    {extractedTimes.every(t => t.selected) ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              <div className="space-y-2 max-h-72 overflow-y-auto">
                 {extractedTimes.map((time, index) => (
                   <div 
                     key={index}
@@ -1351,12 +1365,25 @@ const App: React.FC = () => {
                           {time.selected && <CheckCircle2 className="w-4 h-4 text-white" />}
                         </div>
                         <div>
-                          <p className="font-black text-slate-800">{time.eventName || `${time.distance} ${time.stroke}`}</p>
-                          <p className="text-[10px] text-slate-500 uppercase">{time.swimmerName} {time.place ? `• ${time.place}${['st','nd','rd'][time.place-1] || 'th'} Place` : ''}</p>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-black text-slate-800">{time.matchedEventName || time.eventName || `${time.distance} ${time.stroke}`}</p>
+                            {time.matchConfidence && (
+                              <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                time.matchConfidence === 'high' ? 'bg-green-100 text-green-700' :
+                                time.matchConfidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                {time.matchConfidence === 'high' ? '✓ Matched' : time.matchConfidence === 'medium' ? '~ Partial' : '? New'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold">{time.swimmerName}</p>
+                          <p className="text-[9px] text-slate-400">{time.place ? `${time.place}${['st','nd','rd'][time.place-1] || 'th'} Place` : ''} {time.heat ? `• Heat ${time.heat}` : ''} {time.lane ? `• Lane ${time.lane}` : ''}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-black text-green-600">{time.timeStr}</p>
+                        <p className="text-[9px] text-slate-400">{time.distance}y {time.stroke}</p>
                       </div>
                     </div>
                   </div>
