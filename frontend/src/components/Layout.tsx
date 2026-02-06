@@ -24,9 +24,7 @@ const Layout: React.FC<Props> = ({ children, activeTab, setActiveTab, title, use
       <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
         <div className="flex justify-between items-center max-w-2xl mx-auto">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Trophy className="text-white w-5 h-5" />
-            </div>
+            <img src="/images/logo-icon.png" alt="SwimQual.app" className="w-8 h-8 rounded-lg" />
             <h1 className="text-xl font-black tracking-tight text-slate-800 uppercase italic">
               SwimQual<span className="text-blue-600">.app</span>
             </h1>
