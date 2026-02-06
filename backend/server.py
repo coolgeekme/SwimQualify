@@ -99,6 +99,7 @@ class ResearchStandardsRequest(BaseModel):
     gender: str
     stateLocation: str
     course: str
+    season: str = "2026"
 
 class DocumentAnalyzeRequest(BaseModel):
     imageData: str
