@@ -1,70 +1,31 @@
-# SwimQualify - Product Requirements Document
+# SwimQual.app - Product Requirements Document
+
+## Last Updated: Feb 6, 2026
 
 ## Original Problem Statement
-SwimQualify - Swim Performance Tracker for competitive youth swimmers to track progress toward qualifying times.
+SwimQual.app - A swim time tracking application with MongoDB backend, featuring:
+- Multi-user access (Swimmer, Parent, Coach, Admin roles)
+- Event & time tracking with qualification badges
+- AI-powered heat sheet scanner (GPT-4o Vision)
+- AI standards research (Perplexity AI)
+- AI Technique Coach & Stroke Guide
 
-## Core Requirements
-- **Performance Tracking**: Log swim times for various events (strokes, distances, course types)
-- **Qualifying Cut Analysis**: See how close swimmers are to Regional and State times
-- **Progress Visualization**: Charts showing time improvements over the season
-- **Trend Forecasting**: Predictions based on improvement patterns
-- **DQ Support**: Mark disqualified results, excluded from best time calculations
+## Tech Stack
+- Frontend: React (port 3000)
+- Backend: FastAPI (port 8001)
+- Database: MongoDB
 
-## User Personas
-1. **Swimmer**: Personal dashboard for tracking own times
-2. **Parent**: View linked children's progress
-3. **Coach**: Manage team roster and set focus goals
-4. **Admin**: Full access including managing qualifying standards
+## What's Been Implemented
+- [x] Core application with role-based authentication
+- [x] Dashboard with event cards and qualification tracking
+- [x] Heat sheet scanner with batch upload
+- [x] Standards research with AI
+- [x] Stroke guide with YouTube tutorials
+- [x] Logo removal (Feb 6, 2026)
 
-## Technical Architecture
-- **Frontend**: React with TypeScript (port 3000), Recharts for graphs
-- **Backend**: FastAPI server (port 8001)
-- **Database**: MongoDB (swimqualify database)
-- **AI Features**:
-  - OpenAI GPT-4o-mini for Technique Coach stroke analysis
-  - Perplexity API for real-time qualifying standards research
+## Recent Changes
+- Feb 6, 2026: Removed all custom logo images per user request
 
-## What's Been Implemented (Jan 24, 2026)
-- [x] MongoDB database migration from PostgreSQL
-- [x] User authentication (login/register)
-- [x] Demo accounts (Alex, Sarah, Maria, Admin)
-- [x] Events management with auto-seeding (50 Free, 100 Free, 100 Back, etc.)
-- [x] Qualifying standards database (Regional/State cuts)
-- [x] Swimmer dashboard with gap-to-cut analysis
-- [x] Event detail pages with performance charts
-- [x] Time entry with DQ support
-- [x] Admin tools: Explorer, Search (Perplexity), Events management
-- [x] AI Technique Coach (OpenAI integration)
-
-## API Endpoints
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration  
-- `GET /api/events` - Get all events
-- `GET /api/standards` - Get qualifying standards
-- `GET /api/athletes` - Get athletes (session required)
-- `GET /api/times` - Get time entries (session required)
-- `POST /api/seed` - Seed initial data
-- `POST /api/ai/stroke-insights` - AI technique analysis
-- `POST /api/ai/research-standards` - Perplexity standards research
-
-## Backlog / Future Enhancements
-### P0 (Critical)
-- None currently
-
-### P1 (High Priority)
-- Weekly check-in feature for engagement
-- Team management for coaches
-
-### P2 (Medium Priority)
-- Mobile app optimization
-- Export times to CSV
-- Meet schedule integration
-- Parent-child account linking
-
-## Demo Accounts
-| Email | Password | Role |
-|-------|----------|------|
-| alex@team.com | swimmer123 | Swimmer |
-| sarah@team.com | coach123 | Coach |
-| maria@parent.com | parent123 | Parent |
-| admin@swim.com | admin123 | Admin |
+## Backlog
+- P1: Custom logo integration (if user provides new images)
+- P2: Custom favicon
