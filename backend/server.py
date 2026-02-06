@@ -516,6 +516,10 @@ Return ONLY the JSON array."""}
         data = response.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         
+        # Debug: log raw response
+        print(f"AI Response length: {len(text)}")
+        print(f"AI Response preview: {text[:500]}...")
+        
         import re, json
         json_match = re.search(r'\[.*\]', text, re.DOTALL)
         results = []
@@ -523,7 +527,10 @@ Return ONLY the JSON array."""}
         
         if json_match:
             try:
-                results = json.loads(json_match.group(0))
+                raw_json = json_match.group(0)
+                print(f"JSON match found, length: {len(raw_json)}")
+                results = json.loads(raw_json)
+                print(f"Parsed {len(results)} results")
                 # Ensure ageGroup and gender are set correctly from request
                 for r in results:
                     r['ageGroup'] = req.ageGroup
