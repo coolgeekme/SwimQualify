@@ -165,6 +165,7 @@ const App: React.FC = () => {
 
   // AI Research & Scan State
   const [isResearching, setIsResearching] = useState(false);
+  const [isApplyingResults, setIsApplyingResults] = useState(false);
   const [researchResults, setResearchResults] = useState<ResearchResult[]>([]);
   const [groundingLinks, setGroundingLinks] = useState<{title: string, uri: string}[]>([]);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
