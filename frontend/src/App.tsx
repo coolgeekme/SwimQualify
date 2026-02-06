@@ -1714,9 +1714,8 @@ const App: React.FC = () => {
   if (currentScreen === 'login') return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-slate-100">
       <div className="w-full max-w-md text-center">
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl"><Trophy className="text-white w-10 h-10" /></div>
         <div className="flex flex-col items-center mb-8">
-          <img src="/images/logo-icon.png" alt="SwimQual.app" className="w-20 h-20 mb-4" />
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl"><Trophy className="text-white w-10 h-10" /></div>
           <h1 className="text-3xl font-black italic uppercase tracking-tighter">SwimQual<span className="text-blue-500">.app</span></h1>
         </div>
         <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl">
