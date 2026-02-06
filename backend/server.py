@@ -610,33 +610,53 @@ class HeatSheetAnalyzeRequest(BaseModel):
 
 @app.post("/api/ai/extract-heat-times")
 async def extract_heat_times(req: HeatSheetAnalyzeRequest):
-    """Extract swim times from a heat sheet screenshot"""
+    """Extract swim times from a heat sheet screenshot with AI-powered event name matching"""
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="OpenAI API key not configured")
     
-    swimmer_context = f" Focus on finding times for swimmer: {req.swimmerName}." if req.swimmerName else ""
+    swimmer_context = f" Pay special attention to times for swimmer: {req.swimmerName}." if req.swimmerName else ""
     
-    prompt = f"""Analyze this swim meet heat sheet or results image and extract ALL swim times you can find.{swimmer_context}
+    # Standard event names used in the app
+    standard_events = [
+        "50 Free", "100 Free", "200 Free", "500 Free",
+        "50 Back", "100 Back", "200 Back",
+        "50 Breast", "100 Breast", "200 Breast",
+        "50 Fly", "100 Fly", "200 Fly",
+        "100 IM", "200 IM", "400 IM"
+    ]
+    
+    prompt = f"""Analyze this swim meet heat sheet or results image and extract ALL swim times visible.{swimmer_context}
 
-Return a JSON array of objects with the following structure:
+IMPORTANT: Extract EVERY time you can see in the image, not just one swimmer.
+
+For event names, normalize them to match these standard formats:
+{', '.join(standard_events)}
+
+Common abbreviations to normalize:
+- "FR", "Free", "Freestyle" → use distance + "Free" (e.g., "50 Free")
+- "BK", "Back", "Backstroke" → use distance + "Back" (e.g., "100 Back")
+- "BR", "Breast", "Breaststroke" → use distance + "Breast" (e.g., "100 Breast")
+- "FL", "Fly", "Butterfly" → use distance + "Fly" (e.g., "50 Fly")
+- "IM", "I.M.", "Individual Medley" → use distance + "IM" (e.g., "200 IM")
+
+Return a JSON array with ALL times found:
 [{{
-  "swimmerName": "Name from the sheet",
-  "eventName": "50 Free" or "100 Back" etc,
-  "distance": 50 or 100 etc (number),
+  "swimmerName": "Full name from the sheet",
+  "eventName": "Normalized event name (e.g., '50 Free', '100 Back')",
+  "distance": 50 (number extracted from event),
   "stroke": "Freestyle" or "Backstroke" or "Breaststroke" or "Butterfly" or "Individual Medley",
-  "timeStr": "28.45" or "1:05.32" (the actual time shown),
-  "place": 1 or 2 etc (if shown, otherwise null),
+  "timeStr": "28.45" or "1:05.32" (exact time as shown),
+  "place": 1 (if shown, otherwise null),
   "heat": 3 (if shown, otherwise null),
-  "lane": 4 (if shown, otherwise null),
-  "meetName": "Meet name if visible" (otherwise null),
-  "date": "2024-01-15" (if visible, otherwise null)
+  "lane": 4 (if shown, otherwise null)
 }}]
 
-Important:
-- Extract ALL times visible in the image
-- Times can be in format SS.XX (seconds) or M:SS.XX (minutes:seconds)
-- Common strokes: Free/Freestyle, Back/Backstroke, Breast/Breaststroke, Fly/Butterfly, IM/Individual Medley
-- Return ONLY the raw JSON array, no other text"""
+Critical instructions:
+1. Extract ALL swimmers' times, not just one person
+2. Normalize ALL event names to the standard format
+3. Include the full swimmer name as shown
+4. Times format: SS.XX for under a minute, M:SS.XX for over a minute
+5. Return ONLY the raw JSON array, no other text or explanation"""
     
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -650,7 +670,8 @@ Important:
                         {"type": "image_url", "image_url": {"url": f"data:{req.mimeType};base64,{req.imageData}", "detail": "high"}}
                     ]}
                 ],
-                "max_tokens": 4096
+                "max_tokens": 4096,
+                "temperature": 0.1
             },
             timeout=90.0
         )
@@ -662,15 +683,71 @@ Important:
         data = response.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         
+        print(f"Heat sheet extraction response length: {len(text)}")
+        
         import re, json
         json_match = re.search(r'\[.*\]', text, re.DOTALL)
         if json_match:
             try:
                 results = json.loads(json_match.group(0))
+                
+                # Post-process to ensure event names are normalized
+                for r in results:
+                    r['eventName'] = normalize_event_name(r.get('eventName', ''), r.get('distance', 0))
+                    r['stroke'] = normalize_stroke_name(r.get('stroke', ''))
+                
+                print(f"Extracted {len(results)} times from heat sheet")
                 return {"success": True, "times": results, "count": len(results)}
             except json.JSONDecodeError as e:
                 return {"success": False, "times": [], "error": f"Failed to parse results: {str(e)}"}
         return {"success": False, "times": [], "error": "No times found in image"}
+
+def normalize_event_name(event_name: str, distance: int) -> str:
+    """Normalize event name to standard format used in app"""
+    if not event_name:
+        return f"{distance} Free" if distance else "Unknown Event"
+    
+    name_lower = event_name.lower().strip()
+    
+    # Extract distance if not provided
+    if not distance:
+        import re
+        dist_match = re.search(r'(\d+)', name_lower)
+        if dist_match:
+            distance = int(dist_match.group(1))
+    
+    # Determine stroke
+    stroke_abbrev = "Free"
+    if any(x in name_lower for x in ['back', 'bk', 'backstroke']):
+        stroke_abbrev = "Back"
+    elif any(x in name_lower for x in ['breast', 'br', 'breaststroke']):
+        stroke_abbrev = "Breast"
+    elif any(x in name_lower for x in ['fly', 'fl', 'butter']):
+        stroke_abbrev = "Fly"
+    elif any(x in name_lower for x in ['im', 'i.m', 'medley', 'individual']):
+        stroke_abbrev = "IM"
+    elif any(x in name_lower for x in ['free', 'fr', 'freestyle']):
+        stroke_abbrev = "Free"
+    
+    return f"{distance} {stroke_abbrev}" if distance else event_name
+
+def normalize_stroke_name(stroke: str) -> str:
+    """Normalize stroke name to full standard form"""
+    if not stroke:
+        return "Freestyle"
+    
+    stroke_lower = stroke.lower().strip()
+    
+    if any(x in stroke_lower for x in ['back', 'bk']):
+        return "Backstroke"
+    elif any(x in stroke_lower for x in ['breast', 'br']):
+        return "Breaststroke"
+    elif any(x in stroke_lower for x in ['fly', 'fl', 'butter']):
+        return "Butterfly"
+    elif any(x in stroke_lower for x in ['im', 'i.m', 'medley', 'individual']):
+        return "Individual Medley"
+    else:
+        return "Freestyle"
 
 # Health check
 @app.get("/api/health")
