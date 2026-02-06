@@ -27,6 +27,8 @@ interface ExtractedTime {
   meetName?: string;
   date?: string;
   selected?: boolean;
+  matchedEventName?: string; // The app's event name this matches to
+  matchConfidence?: 'high' | 'medium' | 'low';
 }
 
 interface ResearchResult {
