@@ -775,12 +775,14 @@ const App: React.FC = () => {
   };
 
   const handleDeleteTime = async (timeId: string) => {
-    if (!confirm('Are you sure you want to delete this time? This cannot be undone.')) {
-      return;
-    }
+    setDeletingTimeId(timeId);
+  };
+
+  const confirmDeleteTime = async () => {
+    if (!deletingTimeId) return;
     
     try {
-      const response = await fetch(`/api/times/${timeId}`, {
+      const response = await fetch(`/api/times/${deletingTimeId}`, {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
@@ -789,14 +791,17 @@ const App: React.FC = () => {
       });
       
       if (response.ok) {
-        setTimes(prev => prev.filter(t => t.id !== timeId));
+        setTimes(prev => prev.filter(t => t.id !== deletingTimeId));
         setEditingTimeEntry(null);
+        setDeletingTimeId(null);
       } else {
         alert('Failed to delete time. Please try again.');
+        setDeletingTimeId(null);
       }
     } catch (err) {
       console.error('Failed to delete time:', err);
       alert('Failed to delete time. Please try again.');
+      setDeletingTimeId(null);
     }
   };
 
