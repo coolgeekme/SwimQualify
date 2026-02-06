@@ -1131,54 +1131,105 @@ const App: React.FC = () => {
 
         {/* Extracted Times */}
         {extractedTimes.length > 0 && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-black text-slate-900 uppercase">Extracted Times ({extractedTimes.length})</h4>
-              <button 
-                onClick={() => setExtractedTimes(prev => prev.map(t => ({ ...t, selected: !prev.every(x => x.selected) })))}
-                className="text-xs font-bold text-blue-600 uppercase"
-              >
-                {extractedTimes.every(t => t.selected) ? 'Deselect All' : 'Select All'}
-              </button>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
+            {/* Meet Details Form */}
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+              <h4 className="text-sm font-black text-blue-800 uppercase mb-4 flex items-center">
+                <Info className="w-4 h-4 mr-2" /> Meet Details (Required)
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Meet Name *</label>
+                  <input 
+                    type="text" 
+                    value={scanMeetDetails.meetName}
+                    onChange={e => setScanMeetDetails(prev => ({ ...prev, meetName: e.target.value }))}
+                    placeholder="e.g. Winter Championships"
+                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Meet Date *</label>
+                  <input 
+                    type="date" 
+                    value={scanMeetDetails.date}
+                    onChange={e => setScanMeetDetails(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Course</label>
+                  <select 
+                    value={scanMeetDetails.course}
+                    onChange={e => setScanMeetDetails(prev => ({ ...prev, course: e.target.value }))}
+                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="SCY">SCY (Short Course Yards)</option>
+                    <option value="SCM">SCM (Short Course Meters)</option>
+                    <option value="LCM">LCM (Long Course Meters)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {extractedTimes.map((time, index) => (
-                <div 
-                  key={index}
-                  onClick={() => toggleExtractedTime(index)}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    time.selected 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-slate-200 bg-slate-50 opacity-60'
-                  }`}
+            {/* Extracted Times List */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-black text-slate-900 uppercase">Extracted Times ({extractedTimes.length})</h4>
+                <button 
+                  onClick={() => setExtractedTimes(prev => prev.map(t => ({ ...t, selected: !prev.every(x => x.selected) })))}
+                  className="text-xs font-bold text-blue-600 uppercase"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${time.selected ? 'bg-green-500' : 'bg-slate-300'}`}>
-                        {time.selected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                  {extractedTimes.every(t => t.selected) ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {extractedTimes.map((time, index) => (
+                  <div 
+                    key={index}
+                    onClick={() => toggleExtractedTime(index)}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      time.selected 
+                        ? 'border-green-500 bg-green-50' 
+                        : 'border-slate-200 bg-slate-50 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${time.selected ? 'bg-green-500' : 'bg-slate-300'}`}>
+                          {time.selected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800">{time.eventName || `${time.distance} ${time.stroke}`}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">{time.swimmerName} {time.place ? `• ${time.place}${['st','nd','rd'][time.place-1] || 'th'} Place` : ''}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-black text-slate-800">{time.eventName || `${time.distance} ${time.stroke}`}</p>
-                        <p className="text-[10px] text-slate-500 uppercase">{time.swimmerName} {time.place ? `• ${time.place}${['st','nd','rd'][time.place-1] || 'th'} Place` : ''}</p>
+                      <div className="text-right">
+                        <p className="text-xl font-black text-green-600">{time.timeStr}</p>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-black text-green-600">{time.timeStr}</p>
-                      {time.meetName && <p className="text-[9px] text-slate-400 uppercase">{time.meetName}</p>}
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <button 
               onClick={handleImportExtractedTimes}
-              disabled={!extractedTimes.some(t => t.selected)}
-              className="w-full mt-4 bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+              disabled={!extractedTimes.some(t => t.selected) || !scanMeetDetails.meetName.trim() || isImportingTimes}
+              className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
             >
-              <Upload className="w-5 h-5" />
-              <span>Import {extractedTimes.filter(t => t.selected).length} Time(s)</span>
+              {isImportingTimes ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Importing...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  <span>Import {extractedTimes.filter(t => t.selected).length} Time(s)</span>
+                </>
+              )}
             </button>
           </div>
         )}
