@@ -1531,7 +1531,7 @@ const App: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
-                    <button onClick={() => researchResults.forEach(res => syncSingleResult(res))} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1">
+                    <button onClick={handleApplyResults} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1">
                       <Save className="w-3 h-3" />
                       <span>Apply All</span>
                     </button>
