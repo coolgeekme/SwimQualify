@@ -1899,6 +1899,143 @@ const App: React.FC = () => {
     </div>
   );
 
+  // Render shared team view (public, no login required)
+  const renderSharedView = () => {
+    if (!sharedTeamData) {
+      return (
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+            <p className="text-slate-600">Loading shared team...</p>
+          </div>
+        </div>
+      );
+    }
+
+    const sharedAthletes = sharedTeamData.athletes || [];
+    const sharedTimes = sharedTeamData.times || [];
+    const sharedEvents = sharedTeamData.events || [];
+    const sharedStandards = sharedTeamData.standards || [];
+
+    const getBestTime = (athleteId: string, eventId: string) => {
+      const athleteTimes = sharedTimes.filter((t: any) => t.athleteId === athleteId && t.eventId === eventId && !t.isDQ);
+      if (athleteTimes.length === 0) return null;
+      return Math.min(...athleteTimes.map((t: any) => t.timeSeconds));
+    };
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-blue-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-3 rounded-xl">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900 uppercase italic">{sharedTeamData.shareName}</h1>
+                  <p className="text-sm text-slate-500 flex items-center space-x-2">
+                    <Eye className="w-4 h-4" />
+                    <span>{sharedTeamData.viewCount} views</span>
+                    <span>•</span>
+                    <span>{sharedAthletes.length} swimmers</span>
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-black text-slate-400 uppercase">Powered by</p>
+                <p className="text-lg font-black italic">SwimQual<span className="text-blue-600">.app</span></p>
+              </div>
+            </div>
+          </div>
+
+          {/* Swimmers Grid */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {sharedAthletes.map((athlete: any) => {
+              const athleteEvents = sharedEvents.filter((e: any) => 
+                athlete.selectedEventIds?.includes(e.id)
+              );
+
+              return (
+                <div key={athlete.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  {/* Athlete Header */}
+                  <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-4 text-white">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                        <UserIcon className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-lg uppercase italic">{athlete.name}</h3>
+                        <p className="text-sm text-slate-300 font-bold">{athlete.ageGroup} • {athlete.gender === 'M' ? 'Boys' : 'Girls'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Events & Times */}
+                  <div className="p-4 space-y-2">
+                    {athleteEvents.length === 0 ? (
+                      <p className="text-center text-slate-400 text-sm py-4">No events tracked</p>
+                    ) : (
+                      athleteEvents.slice(0, 5).map((event: any) => {
+                        const bestTime = getBestTime(athlete.id, event.id);
+                        const eventStandards = sharedStandards.filter((s: any) => 
+                          s.eventId === event.id && 
+                          s.ageGroup === athlete.ageGroup && 
+                          s.gender === athlete.gender
+                        );
+                        const stateStandard = eventStandards.find((s: any) => s.region === 'State');
+                        const regionalStandard = eventStandards.find((s: any) => s.region === 'Regional');
+                        
+                        const isStateQualified = bestTime && stateStandard && bestTime <= stateStandard.cutTimeSeconds;
+                        const isRegionalQualified = bestTime && regionalStandard && bestTime <= regionalStandard.cutTimeSeconds;
+
+                        return (
+                          <div key={event.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                            <div>
+                              <p className="font-bold text-sm text-slate-800">{event.name}</p>
+                              {isStateQualified && (
+                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700">STATE QUALIFIED</span>
+                              )}
+                              {!isStateQualified && isRegionalQualified && (
+                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-100 text-green-700">REGIONAL QUALIFIED</span>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              {bestTime ? (
+                                <p className="font-black text-lg text-blue-600">{formatTime(bestTime)}</p>
+                              ) : (
+                                <p className="text-slate-300 text-sm">No time</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    {athleteEvents.length > 5 && (
+                      <p className="text-center text-slate-400 text-xs pt-2">+{athleteEvents.length - 5} more events</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <a 
+              href="/" 
+              className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-sm hover:bg-blue-500 transition-all"
+            >
+              <Trophy className="w-5 h-5" />
+              <span>Track Your Swimmers with SwimQual.app</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const getContent = () => {
     switch (currentScreen) {
       case 'dashboard': return renderDashboard();
