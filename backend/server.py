@@ -392,6 +392,10 @@ async def research_standards(req: ResearchStandardsRequest):
         "LCM": "Long Course Meters (50 meter pool)"
     }.get(req.course, req.course)
     
+    # Map season year to season description (e.g., 2026 -> 2025-2026)
+    season_year = int(req.season) if req.season.isdigit() else 2026
+    season_description = f"{season_year - 1}-{season_year}"
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(
             "https://api.perplexity.ai/chat/completions",
@@ -400,7 +404,7 @@ async def research_standards(req: ResearchStandardsRequest):
                 "model": "sonar",
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant that researches swim qualifying standards. Always return data as valid JSON arrays only, with no additional text. Course types: SCY = Short Course Yards (25 yard pool), SCM = Short Course Meters (25 meter pool), LCM = Long Course Meters (50 meter pool)."},
-                    {"role": "user", "content": f"Find the 2024-2025 {req.ageGroup} {req.gender} swim qualifying standards for {req.stateLocation} in {course_description}. For each event, find BOTH Regional and State cuts. Return as JSON array: [{{\"name\": string, \"distance\": number, \"stroke\": string, \"regionalTimeStr\": string, \"stateTimeStr\": string, \"ageGroup\": string, \"gender\": string, \"course\": \"{req.course}\"}}]. The course value MUST be exactly \"{req.course}\". Return ONLY raw JSON."}
+                    {"role": "user", "content": f"Find the {season_description} {req.ageGroup} {req.gender} swim qualifying standards for {req.stateLocation} in {course_description}. For each event, find BOTH Regional and State cuts. Return as JSON array: [{{\"name\": string, \"distance\": number, \"stroke\": string, \"regionalTimeStr\": string, \"stateTimeStr\": string, \"ageGroup\": \"{req.ageGroup}\", \"gender\": \"{req.gender}\", \"course\": \"{req.course}\"}}]. The course value MUST be exactly \"{req.course}\", ageGroup MUST be exactly \"{req.ageGroup}\", gender MUST be exactly \"{req.gender}\". Return ONLY raw JSON."}
                 ],
                 "temperature": 0.2,
                 "max_tokens": 2048
@@ -422,6 +426,11 @@ async def research_standards(req: ResearchStandardsRequest):
         if json_match:
             try:
                 results = json.loads(json_match.group(0))
+                # Ensure ageGroup and gender are set correctly from request
+                for r in results:
+                    r['ageGroup'] = req.ageGroup
+                    r['gender'] = req.gender
+                    r['course'] = req.course
             except:
                 pass
         
@@ -440,7 +449,7 @@ async def research_standards(req: ResearchStandardsRequest):
                     title = f"Source {i+1}"
                 citations.append({"title": title, "uri": uri})
         
-        return {"results": results, "citations": citations}
+        return {"results": results, "citations": citations, "season": req.season}
 
 @app.post("/api/ai/analyze-document")
 async def analyze_document(req: DocumentAnalyzeRequest):
