@@ -482,13 +482,23 @@ const App: React.FC = () => {
   };
 
   const handleApplyResults = async () => {
-    for (const res of researchResults) {
-      await syncSingleResult(res);
+    setIsApplyingResults(true);
+    let applied = 0;
+    try {
+      for (const res of researchResults) {
+        await syncSingleResult(res);
+        applied++;
+      }
+      setResearchResults([]);
+      setGroundingLinks([]);
+      setUploadPreview(null);
+      alert(`Successfully applied ${applied} qualifying standards to the database!`);
+    } catch (err) {
+      console.error('Error applying results:', err);
+      alert(`Applied ${applied} standards. Some may have failed.`);
+    } finally {
+      setIsApplyingResults(false);
     }
-    setResearchResults([]);
-    setGroundingLinks([]);
-    setUploadPreview(null);
-    alert("Database updated for all relevant profiles.");
   };
 
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
