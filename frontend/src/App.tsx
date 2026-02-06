@@ -1951,33 +1951,43 @@ const App: React.FC = () => {
           </div>
 
           {/* Swimmers Grid */}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-6">
             {sharedAthletes.map((athlete: any) => {
               const athleteEvents = sharedEvents.filter((e: any) => 
                 athlete.selectedEventIds?.includes(e.id)
               );
+              const athleteTimes = sharedTimes.filter((t: any) => t.athleteId === athlete.id);
 
               return (
                 <div key={athlete.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                   {/* Athlete Header */}
                   <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-4 text-white">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                        <UserIcon className="w-6 h-6 text-white" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                          <UserIcon className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-lg uppercase italic">{athlete.name}</h3>
+                          <p className="text-sm text-slate-300 font-bold">{athlete.ageGroup} • {athlete.gender === 'M' ? 'Boys' : 'Girls'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-black text-lg uppercase italic">{athlete.name}</h3>
-                        <p className="text-sm text-slate-300 font-bold">{athlete.ageGroup} • {athlete.gender === 'M' ? 'Boys' : 'Girls'}</p>
+                      <div className="text-right text-sm">
+                        <p className="text-slate-400">{athleteEvents.length} events</p>
+                        <p className="text-slate-400">{athleteTimes.length} times recorded</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Events & Times */}
-                  <div className="p-4 space-y-2">
+                  {/* Events & All Times */}
+                  <div className="p-4 space-y-4">
                     {athleteEvents.length === 0 ? (
                       <p className="text-center text-slate-400 text-sm py-4">No events tracked</p>
                     ) : (
-                      athleteEvents.slice(0, 5).map((event: any) => {
+                      athleteEvents.map((event: any) => {
+                        const eventTimes = sharedTimes
+                          .filter((t: any) => t.athleteId === athlete.id && t.eventId === event.id)
+                          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
                         const bestTime = getBestTime(athlete.id, event.id);
                         const eventStandards = sharedStandards.filter((s: any) => 
                           s.eventId === event.id && 
@@ -1991,23 +2001,83 @@ const App: React.FC = () => {
                         const isRegionalQualified = bestTime && regionalStandard && bestTime <= regionalStandard.cutTimeSeconds;
 
                         return (
-                          <div key={event.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                            <div>
-                              <p className="font-bold text-sm text-slate-800">{event.name}</p>
-                              {isStateQualified && (
-                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700">STATE QUALIFIED</span>
-                              )}
-                              {!isStateQualified && isRegionalQualified && (
-                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-100 text-green-700">REGIONAL QUALIFIED</span>
-                              )}
+                          <div key={event.id} className="border border-slate-100 rounded-xl overflow-hidden">
+                            {/* Event Header */}
+                            <div className="flex items-center justify-between p-3 bg-slate-50">
+                              <div className="flex items-center space-x-3">
+                                <div className="bg-blue-600 p-2 rounded-lg">
+                                  <Activity className="w-4 h-4 text-white" />
+                                </div>
+                                <div>
+                                  <p className="font-black text-sm text-slate-800">{event.name}</p>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    {isStateQualified && (
+                                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700">STATE QUALIFIED</span>
+                                    )}
+                                    {!isStateQualified && isRegionalQualified && (
+                                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-100 text-green-700">REGIONAL QUALIFIED</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] font-black text-slate-400 uppercase">Best Time</p>
+                                {bestTime ? (
+                                  <p className="font-black text-xl text-blue-600">{formatTime(bestTime)}</p>
+                                ) : (
+                                  <p className="text-slate-300 text-sm">No time</p>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-right">
-                              {bestTime ? (
-                                <p className="font-black text-lg text-blue-600">{formatTime(bestTime)}</p>
-                              ) : (
-                                <p className="text-slate-300 text-sm">No time</p>
-                              )}
-                            </div>
+                            
+                            {/* All Times for this Event */}
+                            {eventTimes.length > 0 && (
+                              <div className="p-3 bg-white">
+                                <p className="text-[10px] font-black text-slate-400 uppercase mb-2">All Times ({eventTimes.length})</p>
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                  {eventTimes.map((time: any, idx: number) => (
+                                    <div key={time.id || idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-sm">
+                                      <div className="flex items-center space-x-3">
+                                        <span className={`font-black ${time.isDQ ? 'text-red-500' : 'text-blue-600'}`}>
+                                          {time.isDQ ? 'DQ' : formatTime(time.timeSeconds)}
+                                        </span>
+                                        {time.timeSeconds === bestTime && !time.isDQ && (
+                                          <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">PR</span>
+                                        )}
+                                      </div>
+                                      <div className="text-right text-xs text-slate-500">
+                                        <span>{new Date(time.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                        {time.meetName && <span className="ml-2 text-slate-400">• {time.meetName}</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Standards Info */}
+                            {(stateStandard || regionalStandard) && (
+                              <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 flex items-center space-x-4 text-[10px]">
+                                {regionalStandard && (
+                                  <span className="text-slate-500">
+                                    <span className="font-black uppercase">Regional:</span> {formatTime(regionalStandard.cutTimeSeconds)}
+                                  </span>
+                                )}
+                                {stateStandard && (
+                                  <span className="text-slate-500">
+                                    <span className="font-black uppercase">State:</span> {formatTime(stateStandard.cutTimeSeconds)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
                           </div>
                         );
                       })
