@@ -1940,6 +1940,8 @@ const App: React.FC = () => {
                     <span>{sharedTeamData.viewCount} views</span>
                     <span>•</span>
                     <span>{sharedAthletes.length} swimmers</span>
+                    <span>•</span>
+                    <span>{sharedTimes.length} total times</span>
                   </p>
                 </div>
               </div>
