@@ -1014,6 +1014,142 @@ const App: React.FC = () => {
 
   const [selectedStrokeGuide, setSelectedStrokeGuide] = useState<string | null>(null);
 
+  const renderScanTimesScreen = () => {
+    if (!currentAthlete) return (
+      <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
+        <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+        <p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p>
+        <button onClick={() => handleTabChange('roster')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Choose Swimmer</button>
+      </div>
+    );
+
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 pb-20">
+        <button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800 transition-colors">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+        </button>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="bg-green-600 p-2 rounded-lg">
+              <Camera className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 italic uppercase">Scan Heat Sheet</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">Upload a photo to extract times for {currentAthlete.name}</p>
+            </div>
+          </div>
+
+          {/* Upload Area */}
+          <input 
+            type="file" 
+            ref={heatSheetInputRef} 
+            onChange={handleHeatSheetUpload} 
+            accept="image/*" 
+            className="hidden" 
+          />
+          
+          {!heatSheetPreview ? (
+            <button 
+              onClick={() => heatSheetInputRef.current?.click()}
+              className="w-full border-2 border-dashed border-slate-200 rounded-xl p-12 text-center hover:border-green-400 hover:bg-green-50 transition-all group"
+            >
+              <Upload className="w-12 h-12 text-slate-300 group-hover:text-green-500 mx-auto mb-4" />
+              <p className="text-slate-500 font-bold uppercase text-xs group-hover:text-green-600">Click to upload heat sheet image</p>
+              <p className="text-slate-400 text-[10px] mt-2">Supports PNG, JPG, HEIC</p>
+            </button>
+          ) : (
+            <div className="space-y-4">
+              <div className="relative">
+                <img src={heatSheetPreview} alt="Heat sheet" className="w-full rounded-xl border border-slate-200" />
+                <button 
+                  onClick={() => { setHeatSheetPreview(null); setExtractedTimes([]); }}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              {extractedTimes.length === 0 && (
+                <button 
+                  onClick={handleExtractTimes}
+                  disabled={isExtractingTimes}
+                  className="w-full bg-green-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl hover:bg-green-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  {isExtractingTimes ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      <span>Analyzing Image...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      <span>Extract Times with AI</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Extracted Times */}
+        {extractedTimes.length > 0 && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-black text-slate-900 uppercase">Extracted Times ({extractedTimes.length})</h4>
+              <button 
+                onClick={() => setExtractedTimes(prev => prev.map(t => ({ ...t, selected: !prev.every(x => x.selected) })))}
+                className="text-xs font-bold text-blue-600 uppercase"
+              >
+                {extractedTimes.every(t => t.selected) ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {extractedTimes.map((time, index) => (
+                <div 
+                  key={index}
+                  onClick={() => toggleExtractedTime(index)}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    time.selected 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-slate-200 bg-slate-50 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${time.selected ? 'bg-green-500' : 'bg-slate-300'}`}>
+                        {time.selected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-800">{time.eventName || `${time.distance} ${time.stroke}`}</p>
+                        <p className="text-[10px] text-slate-500 uppercase">{time.swimmerName} {time.place ? `• ${time.place}${['st','nd','rd'][time.place-1] || 'th'} Place` : ''}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-black text-green-600">{time.timeStr}</p>
+                      {time.meetName && <p className="text-[9px] text-slate-400 uppercase">{time.meetName}</p>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={handleImportExtractedTimes}
+              disabled={!extractedTimes.some(t => t.selected)}
+              className="w-full mt-4 bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+            >
+              <Upload className="w-5 h-5" />
+              <span>Import {extractedTimes.filter(t => t.selected).length} Time(s)</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderFocusScreen = () => {
     if (!currentAthlete) return (
       <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
