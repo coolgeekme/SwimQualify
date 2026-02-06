@@ -767,6 +767,167 @@ const App: React.FC = () => {
     }
   };
 
+  // Heat sheet scanning handlers
+  const handleHeatSheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setHeatSheetMimeType(file.type);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setHeatSheetPreview(event.target?.result as string);
+      setExtractedTimes([]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleExtractTimes = async () => {
+    if (!heatSheetPreview || !currentAthlete) return;
+    
+    setIsExtractingTimes(true);
+    try {
+      const base64Data = heatSheetPreview.split(',')[1];
+      
+      const response = await fetch('/api/ai/extract-heat-times', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Session': JSON.stringify(currentUser)
+        },
+        body: JSON.stringify({
+          imageData: base64Data,
+          mimeType: heatSheetMimeType,
+          swimmerName: currentAthlete.name
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to extract times');
+      
+      const data = await response.json();
+      if (data.success && data.times) {
+        // Mark all times as selected by default
+        const timesWithSelection = data.times.map((t: ExtractedTime) => ({ ...t, selected: true }));
+        setExtractedTimes(timesWithSelection);
+      } else {
+        alert(data.error || 'No times found in image');
+      }
+    } catch (err) {
+      console.error('Failed to extract times:', err);
+      alert('Failed to extract times from image. Please try again.');
+    } finally {
+      setIsExtractingTimes(false);
+    }
+  };
+
+  const handleImportExtractedTimes = async () => {
+    if (!currentAthlete) return;
+    
+    const selectedTimes = extractedTimes.filter(t => t.selected);
+    if (selectedTimes.length === 0) {
+      alert('Please select at least one time to import');
+      return;
+    }
+
+    let imported = 0;
+    for (const time of selectedTimes) {
+      // Find or create matching event
+      const strokeMap: Record<string, string> = {
+        'Free': 'Freestyle', 'Freestyle': 'Freestyle',
+        'Back': 'Backstroke', 'Backstroke': 'Backstroke',
+        'Breast': 'Breaststroke', 'Breaststroke': 'Breaststroke',
+        'Fly': 'Butterfly', 'Butterfly': 'Butterfly',
+        'IM': 'Individual Medley', 'Individual Medley': 'Individual Medley'
+      };
+      const normalizedStroke = strokeMap[time.stroke] || time.stroke;
+      
+      let matchingEvent = events.find(e => 
+        e.distance === time.distance && 
+        e.stroke === normalizedStroke &&
+        e.ageGroup === currentAthlete.ageGroup
+      );
+
+      if (!matchingEvent) {
+        // Create the event
+        const newEvent = {
+          id: `e_scan_${Date.now()}_${imported}`,
+          name: time.eventName || `${time.distance} ${normalizedStroke.split(' ')[0]}`,
+          distance: time.distance,
+          stroke: normalizedStroke,
+          course: 'SCY',
+          ageGroup: currentAthlete.ageGroup
+        };
+        
+        try {
+          const eventRes = await fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
+            body: JSON.stringify(newEvent)
+          });
+          if (eventRes.ok) {
+            matchingEvent = await eventRes.json();
+            setEvents(prev => [...prev, matchingEvent!]);
+          }
+        } catch (err) {
+          console.error('Failed to create event:', err);
+          continue;
+        }
+      }
+
+      if (matchingEvent) {
+        // Parse time string to seconds
+        const parseTimeStr = (str: string): number => {
+          const parts = str.split(':');
+          if (parts.length === 2) {
+            return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+          }
+          return parseFloat(str);
+        };
+
+        const newTime = {
+          id: `t_scan_${Date.now()}_${imported}`,
+          athleteId: currentAthlete.id,
+          eventId: matchingEvent.id,
+          timeSeconds: parseTimeStr(time.timeStr),
+          course: 'SCY' as const,
+          date: time.date || new Date().toISOString().split('T')[0],
+          meetName: time.meetName || 'Imported from scan',
+          ageGroupAtTime: currentAthlete.ageGroup,
+          isDQ: false
+        };
+
+        try {
+          const timeRes = await fetch('/api/times', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
+            body: JSON.stringify(newTime)
+          });
+          if (timeRes.ok) {
+            const savedTime = await timeRes.json();
+            setTimes(prev => [...prev, savedTime]);
+            imported++;
+          }
+        } catch (err) {
+          console.error('Failed to save time:', err);
+        }
+      }
+    }
+
+    if (imported > 0) {
+      alert(`Successfully imported ${imported} time(s)!`);
+      setHeatSheetPreview(null);
+      setExtractedTimes([]);
+      setCurrentScreen('dashboard');
+    } else {
+      alert('Failed to import times. Please try again.');
+    }
+  };
+
+  const toggleExtractedTime = (index: number) => {
+    setExtractedTimes(prev => prev.map((t, i) => 
+      i === index ? { ...t, selected: !t.selected } : t
+    ));
+  };
+
   // Stroke guide data for parents and fans with video links
   const strokeGuide: Record<string, { description: string; whatToWatch: string[]; keyMoments: string[]; videos: { title: string; url: string; source: string }[] }> = {
     'Freestyle': {
