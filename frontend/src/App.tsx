@@ -210,6 +210,65 @@ const App: React.FC = () => {
     }
   };
 
+  // Team sharing functions
+  const handleCreateShareLink = async () => {
+    if (!currentUser) return;
+    setIsCreatingShare(true);
+    try {
+      const response = await fetch('/api/teams/share', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify({ 
+          teamId: currentUser.teamId,
+          shareName: `${currentUser.name}'s Team`
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const baseUrl = window.location.origin;
+        setShareCode(data.shareCode);
+        setShareLink(`${baseUrl}?share=${data.shareCode}`);
+        setShowShareModal(true);
+      }
+    } catch (err) {
+      console.error('Failed to create share link:', err);
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
+  const handleCopyShareLink = () => {
+    if (shareLink) {
+      navigator.clipboard.writeText(shareLink);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  const loadSharedTeam = async (code: string) => {
+    try {
+      const response = await fetch(`/api/teams/share/${code}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSharedTeamData(data);
+        setCurrentScreen('shared-view');
+      } else {
+        alert('Share link not found or expired');
+      }
+    } catch (err) {
+      console.error('Failed to load shared team:', err);
+    }
+  };
+
+  // Check for share code in URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shareCodeParam = params.get('share');
+    if (shareCodeParam) {
+      loadSharedTeam(shareCodeParam);
+    }
+  }, []);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
