@@ -812,26 +812,36 @@ async def get_shared_team(share_code: str):
         raise HTTPException(status_code=404, detail="Share link not found or expired")
     
     team_id = share["teamId"]
+    created_by = share.get("createdBy")
     
     # Increment view count
     db.team_shares.update_one({"shareCode": share_code}, {"$inc": {"viewCount": 1}})
     
-    # Get team data - try both teamId filter and no filter as fallback
+    # Get athletes - try multiple strategies to find the user's athletes
+    athletes = []
+    
+    # Strategy 1: By teamId
     athletes = list(db.athletes.find({"teamId": team_id}, {"_id": 0}))
     
-    # If no athletes found with teamId, get all athletes (for backwards compatibility)
+    # Strategy 2: By parentId (for parent accounts)
+    if len(athletes) == 0 and created_by:
+        athletes = list(db.athletes.find({"parentId": created_by}, {"_id": 0}))
+    
+    # Strategy 3: By userId (for swimmer accounts)
+    if len(athletes) == 0 and created_by:
+        athletes = list(db.athletes.find({"userId": created_by}, {"_id": 0}))
+    
+    # Strategy 4: Get all athletes (fallback for backwards compatibility)
     if len(athletes) == 0:
         athletes = list(db.athletes.find({}, {"_id": 0}))
     
-    # Get times for all athletes
+    # Get times for all found athletes
     athlete_ids = [a["id"] for a in athletes]
     
-    # Get ALL times if we have athletes, otherwise empty
     if athlete_ids:
         times = list(db.times.find({"athleteId": {"$in": athlete_ids}}, {"_id": 0}))
     else:
-        # Fallback: get all times
-        times = list(db.times.find({}, {"_id": 0}))
+        times = []
     
     # Get events
     events = list(db.events.find({}, {"_id": 0}))
@@ -840,7 +850,10 @@ async def get_shared_team(share_code: str):
     standards = list(db.standards.find({}, {"_id": 0}))
     
     # Debug logging
-    print(f"Share {share_code}: {len(athletes)} athletes, {len(times)} times, {len(events)} events")
+    print(f"Share {share_code}: teamId={team_id}, createdBy={created_by}")
+    print(f"  Found: {len(athletes)} athletes, {len(times)} times, {len(events)} events")
+    if athletes:
+        print(f"  Athlete IDs: {athlete_ids[:3]}...")
     
     return {
         "shareName": share.get("shareName", "Shared Team"),
