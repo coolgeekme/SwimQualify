@@ -346,7 +346,8 @@ const App: React.FC = () => {
           ageGroup: formData.get('ageGroup'),
           gender: formData.get('gender'),
           stateLocation: formData.get('stateLocation'),
-          course: formData.get('course')
+          course: formData.get('course'),
+          season: formData.get('season')
         })
       });
 
@@ -355,7 +356,15 @@ const App: React.FC = () => {
       const data = await response.json();
       
       if (data.results && data.results.length > 0) {
-        setResearchResults(data.results);
+        // Ensure results have ageGroup and gender from the search
+        const enrichedResults = data.results.map((r: ResearchResult) => ({
+          ...r,
+          ageGroup: r.ageGroup || formData.get('ageGroup'),
+          gender: r.gender || formData.get('gender'),
+          course: r.course || formData.get('course'),
+          season: data.season || formData.get('season')
+        }));
+        setResearchResults(enrichedResults);
       } else {
         alert(data.error || "Could not extract specific times. Please check sources or try a different location.");
       }
