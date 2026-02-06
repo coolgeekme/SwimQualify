@@ -336,10 +336,19 @@ async def stroke_insights(req: StrokeInsightsRequest):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "You are a high-performance swim coach. Analyze competition results and provide specific technical focus areas. Return ONLY valid JSON with stroke names as keys and technique tips as values."},
-                    {"role": "user", "content": f"Analyze these competition results for {req.athleteName} ({req.ageGroup} {'Male' if req.gender == 'M' else 'Female'}) and provide specific technical focus areas for each stroke they swim:\n\n{req.timeData}"}
+                    {"role": "system", "content": """You are a high-performance swim coach analyzing youth swimmer data. 
+Return ONLY a valid JSON object where:
+- Keys are stroke names (e.g., "Freestyle", "Backstroke", "Breaststroke", "Butterfly")
+- Values are strings with 2-3 specific, actionable technique tips
+
+Example format:
+{"Freestyle": "Focus on high elbow catch and bilateral breathing. Work on streamlined push-offs.", "Backstroke": "Maintain steady hip rotation and keep head still."}
+
+Do NOT nest objects. Each value must be a simple string."""},
+                    {"role": "user", "content": f"Analyze these swim times for {req.athleteName} ({req.ageGroup} {'Male' if req.gender == 'M' else 'Female'}) and provide technique focus areas:\n\n{req.timeData}"}
                 ],
-                "max_tokens": 1024
+                "max_tokens": 1024,
+                "temperature": 0.7
             },
             timeout=30.0
         )
@@ -350,11 +359,24 @@ async def stroke_insights(req: StrokeInsightsRequest):
         data = response.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         
-        import re
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        import re, json
+        json_match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
         if json_match:
-            import json
-            return {"insights": json.loads(json_match.group(0))}
+            try:
+                parsed = json.loads(json_match.group(0))
+                # Ensure all values are strings (flatten if nested)
+                insights = {}
+                for k, v in parsed.items():
+                    if isinstance(v, str):
+                        insights[k] = v
+                    elif isinstance(v, dict):
+                        # Flatten nested dict to string
+                        insights[k] = ". ".join(str(val) for val in v.values())
+                    else:
+                        insights[k] = str(v)
+                return {"insights": insights}
+            except json.JSONDecodeError:
+                pass
         return {"insights": {}}
 
 @app.post("/api/ai/research-standards")
