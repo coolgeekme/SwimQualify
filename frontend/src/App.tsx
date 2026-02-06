@@ -175,6 +175,12 @@ const App: React.FC = () => {
   const [heatSheetMimeType, setHeatSheetMimeType] = useState<string>('image/png');
   const [extractedTimes, setExtractedTimes] = useState<ExtractedTime[]>([]);
   const [isExtractingTimes, setIsExtractingTimes] = useState(false);
+  const [isImportingTimes, setIsImportingTimes] = useState(false);
+  const [scanMeetDetails, setScanMeetDetails] = useState<{ meetName: string; date: string; course: string }>({
+    meetName: '',
+    date: new Date().toISOString().split('T')[0],
+    course: 'SCY'
+  });
   const heatSheetInputRef = useRef<HTMLInputElement>(null);
 
   const handleTabChange = (tab: string) => {
