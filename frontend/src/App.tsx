@@ -4,7 +4,7 @@ import {
   Plus, ChevronLeft, ChevronRight, History, Target, AlertCircle, LogIn, 
   UserPlus, Layers, Mail, Lock, Search, Sparkles, ExternalLink, RefreshCw, 
   CheckCircle2, MapPin, Key, Upload, Camera, Trophy, Home, Users, Settings, LogOut,
-  Zap, Brain, Calendar, ShieldCheck, User as UserIcon, Heart, Trash2, Edit3, FileText, X, Filter, Ruler, Info, Save, CheckSquare, Square, Baby, Lightbulb, Activity, Clock, Award
+  Zap, Brain, Calendar, ShieldCheck, User as UserIcon, Heart, Trash2, Edit3, FileText, X, Filter, Ruler, Info, Save, CheckSquare, Square, Baby, Lightbulb, Activity, Clock, Award, Share2, Copy, Link, Eye
 } from 'lucide-react';
 import Layout from './components/Layout';
 import DashboardCard from './components/DashboardCard';
