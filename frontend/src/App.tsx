@@ -193,6 +193,14 @@ const App: React.FC = () => {
   });
   const heatSheetInputRef = useRef<HTMLInputElement>(null);
 
+  // Team sharing state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
+  const [sharedTeamData, setSharedTeamData] = useState<any>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setCurrentScreen(tab as Screen);
