@@ -2078,17 +2078,6 @@ const App: React.FC = () => {
                 </div>
               );
             })}
-                          </div>
-                        );
-                      })
-                    )}
-                    {athleteEvents.length > 5 && (
-                      <p className="text-center text-slate-400 text-xs pt-2">+{athleteEvents.length - 5} more events</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
           </div>
 
           {/* Footer */}
