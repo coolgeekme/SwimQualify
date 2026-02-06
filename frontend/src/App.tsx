@@ -1156,28 +1156,48 @@ const App: React.FC = () => {
             ref={heatSheetInputRef} 
             onChange={handleHeatSheetUpload} 
             accept="image/*" 
+            multiple
             className="hidden" 
           />
           
-          {!heatSheetPreview ? (
-            <button 
-              onClick={() => heatSheetInputRef.current?.click()}
-              className="w-full border-2 border-dashed border-slate-200 rounded-xl p-12 text-center hover:border-green-400 hover:bg-green-50 transition-all group"
-            >
-              <Upload className="w-12 h-12 text-slate-300 group-hover:text-green-500 mx-auto mb-4" />
-              <p className="text-slate-500 font-bold uppercase text-xs group-hover:text-green-600">Click to upload heat sheet image</p>
-              <p className="text-slate-400 text-[10px] mt-2">Supports PNG, JPG, HEIC</p>
-            </button>
-          ) : (
+          {/* Upload Button - Always visible */}
+          <button 
+            onClick={() => heatSheetInputRef.current?.click()}
+            className="w-full border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-green-400 hover:bg-green-50 transition-all group"
+          >
+            <Upload className="w-10 h-10 text-slate-300 group-hover:text-green-500 mx-auto mb-3" />
+            <p className="text-slate-500 font-bold uppercase text-xs group-hover:text-green-600">
+              {heatSheetPreviews.length > 0 ? 'Add More Images' : 'Click to Upload Heat Sheet Images'}
+            </p>
+            <p className="text-slate-400 text-[10px] mt-2">Supports PNG, JPG, HEIC • Select multiple files</p>
+          </button>
+
+          {/* Image Previews Grid */}
+          {heatSheetPreviews.length > 0 && (
             <div className="space-y-4">
-              <div className="relative">
-                <img src={heatSheetPreview} alt="Heat sheet" className="w-full rounded-xl border border-slate-200" />
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-black text-slate-700 uppercase">{heatSheetPreviews.length} Image{heatSheetPreviews.length > 1 ? 's' : ''} Selected</p>
                 <button 
-                  onClick={() => { setHeatSheetPreview(null); setExtractedTimes([]); }}
-                  className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600"
+                  onClick={() => { setHeatSheetPreviews([]); setExtractedTimes([]); }}
+                  className="text-xs font-bold text-red-500 uppercase hover:text-red-600"
                 >
-                  <X className="w-4 h-4" />
+                  Clear All
                 </button>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {heatSheetPreviews.map((preview, index) => (
+                  <div key={index} className="relative group">
+                    <img src={preview.data} alt={`Heat sheet ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-slate-200" />
+                    <button 
+                      onClick={() => removeHeatSheetImage(index)}
+                      className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <p className="absolute bottom-1 left-1 right-1 text-[8px] text-white bg-black/50 px-1 py-0.5 rounded truncate">{preview.name}</p>
+                  </div>
+                ))}
               </div>
               
               {extractedTimes.length === 0 && (
@@ -1189,15 +1209,18 @@ const App: React.FC = () => {
                   {isExtractingTimes ? (
                     <>
                       <RefreshCw className="w-5 h-5 animate-spin" />
-                      <span>Analyzing Image...</span>
+                      <span>{extractionProgress ? `Analyzing ${extractionProgress.current}/${extractionProgress.total}...` : 'Analyzing...'}</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-5 h-5" />
-                      <span>Extract Times with AI</span>
+                      <span>Extract Times from {heatSheetPreviews.length} Image{heatSheetPreviews.length > 1 ? 's' : ''}</span>
                     </>
                   )}
                 </button>
+              )}
+            </div>
+          )}
               )}
             </div>
           )}
