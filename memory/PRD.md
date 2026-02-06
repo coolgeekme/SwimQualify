@@ -22,10 +22,15 @@ SwimQual.app - A swim time tracking application with MongoDB backend, featuring:
 - [x] Standards research with AI
 - [x] Stroke guide with YouTube tutorials
 - [x] Logo removal (Feb 6, 2026)
+- [x] Year/season selector for standards research (Feb 6, 2026)
+- [x] Age-group specific events - swimmers only see events for their age bracket (Feb 6, 2026)
 
 ## Recent Changes
-- Feb 6, 2026: Removed all custom logo images per user request
+- Feb 6, 2026: Removed all custom logo images
+- Feb 6, 2026: Added year/season selector to research form (2025-2026, 2024-2025, 2023-2024)
+- Feb 6, 2026: Events/standards now correctly filtered by age group so Diego (11-12) and Enzo (10U) have different qualifying times
 
 ## Backlog
-- P1: Custom logo integration (if user provides new images)
+- P1: Bulk copy standards between age groups
+- P2: Custom logo integration (if user provides new images)
 - P2: Custom favicon
