@@ -815,18 +815,31 @@ async def get_shared_team(share_code: str):
     # Increment view count
     db.team_shares.update_one({"shareCode": share_code}, {"$inc": {"viewCount": 1}})
     
-    # Get team data
+    # Get team data - try both teamId filter and no filter as fallback
     athletes = list(db.athletes.find({"teamId": team_id}, {"_id": 0}))
+    
+    # If no athletes found with teamId, get all athletes (for backwards compatibility)
+    if len(athletes) == 0:
+        athletes = list(db.athletes.find({}, {"_id": 0}))
     
     # Get times for all athletes
     athlete_ids = [a["id"] for a in athletes]
-    times = list(db.times.find({"athleteId": {"$in": athlete_ids}}, {"_id": 0}))
+    
+    # Get ALL times if we have athletes, otherwise empty
+    if athlete_ids:
+        times = list(db.times.find({"athleteId": {"$in": athlete_ids}}, {"_id": 0}))
+    else:
+        # Fallback: get all times
+        times = list(db.times.find({}, {"_id": 0}))
     
     # Get events
     events = list(db.events.find({}, {"_id": 0}))
     
     # Get standards
     standards = list(db.standards.find({}, {"_id": 0}))
+    
+    # Debug logging
+    print(f"Share {share_code}: {len(athletes)} athletes, {len(times)} times, {len(events)} events")
     
     return {
         "shareName": share.get("shareName", "Shared Team"),
