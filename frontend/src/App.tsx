@@ -155,6 +155,7 @@ const App: React.FC = () => {
   // Management State
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editingTimeEntry, setEditingTimeEntry] = useState<TimeEntry | null>(null);
+  const [deletingTimeId, setDeletingTimeId] = useState<string | null>(null);
   const [adminMode, setAdminMode] = useState<'search' | 'scan' | 'events' | 'explorer'>('explorer');
   const [explorerFilter, setExplorerFilter] = useState<{ ageGroup: string; gender: 'M' | 'F'; course: Course }>({ ageGroup: '11-12', gender: 'M', course: Course.SCY });
 
