@@ -1542,9 +1542,8 @@ const App: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
-                    <button onClick={handleApplyResults} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1">
-                      <Save className="w-3 h-3" />
-                      <span>Apply All</span>
+                    <button onClick={handleApplyResults} disabled={isApplyingResults} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1 disabled:opacity-50">
+                      {isApplyingResults ? <><RefreshCw className="w-3 h-3 animate-spin" /><span>Applying...</span></> : <><Save className="w-3 h-3" /><span>Apply All</span></>}
                     </button>
                   </div>
                   <div className="max-h-72 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
