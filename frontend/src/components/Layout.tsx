@@ -28,7 +28,7 @@ const Layout: React.FC<Props> = ({ children, activeTab, setActiveTab, title, use
               <Trophy className="text-white w-5 h-5" />
             </div>
             <h1 className="text-xl font-black tracking-tight text-slate-800 uppercase italic">
-              SwimQualify
+              SwimQual<span className="text-blue-600">.app</span>
             </h1>
           </div>
           <div className="flex items-center space-x-3">
