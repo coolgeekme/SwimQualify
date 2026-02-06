@@ -773,6 +773,32 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteTime = async (timeId: string) => {
+    if (!confirm('Are you sure you want to delete this time? This cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/times/${timeId}`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Session': JSON.stringify(currentUser)
+        }
+      });
+      
+      if (response.ok) {
+        setTimes(prev => prev.filter(t => t.id !== timeId));
+        setEditingTimeEntry(null);
+      } else {
+        alert('Failed to delete time. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to delete time:', err);
+      alert('Failed to delete time. Please try again.');
+    }
+  };
+
   // Heat sheet scanning handlers
   const handleHeatSheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
