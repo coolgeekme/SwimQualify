@@ -746,6 +746,188 @@ const App: React.FC = () => {
     }
   };
 
+  // Stroke guide data for parents and fans
+  const strokeGuide: Record<string, { description: string; whatToWatch: string[]; keyMoments: string[] }> = {
+    'Freestyle': {
+      description: 'The fastest and most common stroke. Swimmers alternate arm strokes while flutter kicking, breathing to the side.',
+      whatToWatch: [
+        'Smooth, rhythmic arm turnover - arms should enter the water fingertips first',
+        'Head position - should be looking down, not forward',
+        'Kick should be fast and compact, not big splashy kicks',
+        'Watch for bilateral breathing (both sides) in longer events',
+        'Streamline off the walls - tight body position underwater'
+      ],
+      keyMoments: ['Start/dive entry', 'Flip turns at walls', 'Final sprint to the finish', 'Breathing pattern']
+    },
+    'Backstroke': {
+      description: 'The only stroke swum on the back. Swimmers alternate arms while flutter kicking, starting in the water.',
+      whatToWatch: [
+        'Rotation - body should rock side to side with each stroke',
+        'Arms should enter pinky-first, straight above the shoulder',
+        'Head stays still, looking straight up',
+        'Consistent kick tempo throughout',
+        'Backstroke flags (5 meters out) help swimmers know when to flip'
+      ],
+      keyMoments: ['Backstroke start (in water, pushing off wall)', 'Backstroke flip turn', 'Finish - must touch on back']
+    },
+    'Breaststroke': {
+      description: 'A slower, technical stroke with a frog-like kick. Arms and legs move symmetrically.',
+      whatToWatch: [
+        'Timing is crucial - pull, breathe, kick, glide sequence',
+        'Kick should be a powerful whip kick, not a scissor kick',
+        'Head comes forward to breathe, not up',
+        'Arms must stay in front of the shoulders (no pulling past the waist)',
+        'Underwater pullout after each wall - one pull, one kick allowed'
+      ],
+      keyMoments: ['Underwater pullout (huge time saver)', 'Two-hand touch at walls and finish', 'Kick timing and power']
+    },
+    'Butterfly': {
+      description: 'The most physically demanding stroke. Both arms move together with a dolphin kick.',
+      whatToWatch: [
+        'Two kicks per stroke cycle - one small kick at entry, one big kick at pull',
+        'Arms recover together over the water',
+        'Undulating body motion like a dolphin',
+        'Breathing forward, chin stays near the water',
+        'Underwater dolphin kicks off walls'
+      ],
+      keyMoments: ['Underwater dolphin kicks (can be very fast)', 'Two-hand touch required', 'Maintaining stroke through fatigue']
+    },
+    'Individual Medley': {
+      description: 'All four strokes in one race: Butterfly, Backstroke, Breaststroke, Freestyle - in that order.',
+      whatToWatch: [
+        'Transitions between strokes at each wall',
+        'Butterfly to Back: touch with two hands, flip to back',
+        'Back to Breast: must touch on back, then turn',
+        'Breast to Free: two hand touch, then go',
+        'Pacing - watch for even splits or negative splitting'
+      ],
+      keyMoments: ['Stroke transitions at each 25/50', 'Maintaining technique when tired', 'Freestyle finish push']
+    }
+  };
+
+  const [selectedStrokeGuide, setSelectedStrokeGuide] = useState<string | null>(null);
+
+  const renderFocusScreen = () => {
+    if (!currentAthlete) return (
+      <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
+        <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+        <p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p>
+        <button onClick={() => handleTabChange('roster')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Choose Swimmer</button>
+      </div>
+    );
+
+    return (
+      <div className="space-y-6 pb-20">
+        {/* AI Technique Coach Section */}
+        <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl border border-slate-800 relative overflow-hidden">
+          <Sparkles className="absolute -right-2 -top-2 w-24 h-24 text-blue-500/10" />
+          <div className="flex items-center justify-between mb-4 relative z-10">
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-600 p-2 rounded-lg"><Lightbulb className="w-5 h-5 text-white" /></div>
+              <div>
+                <h3 className="text-lg font-black italic uppercase">AI Technique Coach</h3>
+                <p className="text-[10px] text-slate-400">Personalized tips based on {currentAthlete.name}'s times</p>
+              </div>
+            </div>
+            <button onClick={handleGenerateStrokeInsights} disabled={isGeneratingInsights} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all flex items-center space-x-2">
+              {isGeneratingInsights ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              <span className="text-xs font-bold uppercase">{isGeneratingInsights ? 'Analyzing...' : 'Generate Tips'}</span>
+            </button>
+          </div>
+          
+          {Object.keys(strokeInsights).length === 0 && !isGeneratingInsights && (
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <p className="text-sm text-slate-400 text-center">Click "Generate Tips" to get AI-powered technique advice based on recorded times</p>
+            </div>
+          )}
+
+          {Object.keys(strokeInsights).length > 0 && (
+            <div className="space-y-3 mt-4">
+              {Object.entries(strokeInsights).map(([stroke, tip]) => (
+                <div key={stroke} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Award className="w-4 h-4 text-blue-400" />
+                    <p className="text-xs font-black uppercase text-blue-400">{stroke}</p>
+                  </div>
+                  <p className="text-sm text-slate-300 leading-relaxed">{tip}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Stroke Guide for Parents & Fans */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="bg-purple-100 p-2 rounded-lg"><Heart className="w-5 h-5 text-purple-600" /></div>
+            <div>
+              <h3 className="text-lg font-black italic uppercase text-slate-800">Stroke Guide</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">For Parents & Fans - What to Watch</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+            {Object.keys(strokeGuide).map(stroke => (
+              <button
+                key={stroke}
+                onClick={() => setSelectedStrokeGuide(selectedStrokeGuide === stroke ? null : stroke)}
+                className={`p-3 rounded-xl text-xs font-black uppercase transition-all ${
+                  selectedStrokeGuide === stroke 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-600'
+                }`}
+              >
+                {stroke === 'Individual Medley' ? 'IM' : stroke}
+              </button>
+            ))}
+          </div>
+
+          {selectedStrokeGuide && strokeGuide[selectedStrokeGuide] && (
+            <div className="bg-purple-50 rounded-xl p-5 border border-purple-100 space-y-4">
+              <div>
+                <p className="text-xs font-black uppercase text-purple-600 mb-2">What is {selectedStrokeGuide}?</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{strokeGuide[selectedStrokeGuide].description}</p>
+              </div>
+              
+              <div>
+                <p className="text-xs font-black uppercase text-purple-600 mb-2 flex items-center">
+                  <Activity className="w-4 h-4 mr-1" /> What to Watch For
+                </p>
+                <ul className="space-y-2">
+                  {strokeGuide[selectedStrokeGuide].whatToWatch.map((item, i) => (
+                    <li key={i} className="flex items-start space-x-2 text-sm text-slate-600">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-purple-600 mb-2 flex items-center">
+                  <Zap className="w-4 h-4 mr-1" /> Key Moments to Watch
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {strokeGuide[selectedStrokeGuide].keyMoments.map((moment, i) => (
+                    <span key={i} className="bg-white px-3 py-1.5 rounded-lg text-xs font-bold text-purple-700 border border-purple-200">
+                      {moment}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!selectedStrokeGuide && (
+            <div className="bg-slate-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-slate-400">Select a stroke above to learn what to watch for during the race</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderDashboard = () => {
     if (!currentAthlete) return <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200"><Users className="w-12 h-12 text-slate-300 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p><button onClick={() => handleTabChange('roster')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Choose Swimmer</button></div>;
     const selectedEvents = events.filter(e => currentAthlete.selectedEventIds.includes(e.id));
