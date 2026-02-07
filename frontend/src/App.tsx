@@ -1635,7 +1635,57 @@ const App: React.FC = () => {
 
   const renderDashboard = () => {
     if (!currentAthlete) return <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200"><Users className="w-12 h-12 text-slate-300 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p><button onClick={() => handleTabChange('roster')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Choose Swimmer</button></div>;
+    
     const selectedEvents = events.filter(e => currentAthlete.selectedEventIds.includes(e.id));
+    
+    // Sort events by: 1) State Qualified, 2) Regional Qualified, 3) Closest to Regional, 4) Closest to State
+    const sortedEvents = [...selectedEvents].sort((a, b) => {
+      const aTime = getBestTime(a.id, currentAthlete.id);
+      const bTime = getBestTime(b.id, currentAthlete.id);
+      
+      const aStandards = standards.filter(s => s.eventId === a.id && s.gender === currentAthlete.gender && s.ageGroup === a.ageGroup);
+      const bStandards = standards.filter(s => s.eventId === b.id && s.gender === currentAthlete.gender && s.ageGroup === b.ageGroup);
+      
+      const aStateCut = aStandards.find(s => s.region === 'State')?.cutTimeSeconds;
+      const aRegionalCut = aStandards.find(s => s.region === 'Regional')?.cutTimeSeconds;
+      const bStateCut = bStandards.find(s => s.region === 'State')?.cutTimeSeconds;
+      const bRegionalCut = bStandards.find(s => s.region === 'Regional')?.cutTimeSeconds;
+      
+      // Check qualification status
+      const aStateQualified = aTime && aStateCut && aTime <= aStateCut;
+      const aRegionalQualified = aTime && aRegionalCut && aTime <= aRegionalCut;
+      const bStateQualified = bTime && bStateCut && bTime <= bStateCut;
+      const bRegionalQualified = bTime && bRegionalCut && bTime <= bRegionalCut;
+      
+      // Priority 1: State Qualified first
+      if (aStateQualified && !bStateQualified) return -1;
+      if (!aStateQualified && bStateQualified) return 1;
+      
+      // Priority 2: Regional Qualified (but not state)
+      if (aRegionalQualified && !aStateQualified && (!bRegionalQualified || bStateQualified)) return -1;
+      if (bRegionalQualified && !bStateQualified && (!aRegionalQualified || aStateQualified)) return 1;
+      
+      // Priority 3: Closest to Regional (for those not yet qualified)
+      if (!aRegionalQualified && !bRegionalQualified && aTime && bTime && aRegionalCut && bRegionalCut) {
+        const aGapToRegional = aTime - aRegionalCut;
+        const bGapToRegional = bTime - bRegionalCut;
+        if (aGapToRegional !== bGapToRegional) return aGapToRegional - bGapToRegional;
+      }
+      
+      // Priority 4: Closest to State (for those regionally qualified)
+      if (aRegionalQualified && bRegionalQualified && !aStateQualified && !bStateQualified && aTime && bTime && aStateCut && bStateCut) {
+        const aGapToState = aTime - aStateCut;
+        const bGapToState = bTime - bStateCut;
+        return aGapToState - bGapToState;
+      }
+      
+      // Events with times before events without
+      if (aTime && !bTime) return -1;
+      if (!aTime && bTime) return 1;
+      
+      return 0;
+    });
+    
     return (
       <div className="space-y-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
@@ -1648,7 +1698,7 @@ const App: React.FC = () => {
             <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-50 text-blue-600 p-3 rounded-xl hover:bg-blue-100 transition-all" title="Manage Events"><Edit3 className="w-5 h-5" /></button>
           </div>
         </div>
-        {selectedEvents.length === 0 ? <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200"><Info className="w-10 h-10 text-slate-200 mx-auto mb-4" /><p className="text-slate-500 font-bold text-sm uppercase mb-4">No events selected</p><button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Manage My Events</button></div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{selectedEvents.map(event => <DashboardCard key={event.id} event={event} bestTime={getBestTime(event.id, currentAthlete.id)} standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} />)}</div>}
+        {sortedEvents.length === 0 ? <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200"><Info className="w-10 h-10 text-slate-200 mx-auto mb-4" /><p className="text-slate-500 font-bold text-sm uppercase mb-4">No events selected</p><button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Manage My Events</button></div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{sortedEvents.map(event => <DashboardCard key={event.id} event={event} bestTime={getBestTime(event.id, currentAthlete.id)} standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} />)}</div>}
       </div>
     );
   };
