@@ -469,8 +469,14 @@ async def research_standards(req: ResearchStandardsRequest):
     season_year = int(req.season) if req.season.isdigit() else 2026
     season_description = f"{season_year - 1}-{season_year}"
     
-    # Gender display for search
-    gender_display = "Boys" if req.gender == "M" else "Girls"
+    # Gender display for search - include both terms since LSCs use different terminology
+    # AZ uses "Men/Women", others use "Boys/Girls" - they're interchangeable
+    if req.gender == "M":
+        gender_display = "Boys/Men"
+        gender_terms = "Boys OR Men"
+    else:
+        gender_display = "Girls/Women"
+        gender_terms = "Girls OR Women"
     
     async with httpx.AsyncClient() as client:
         # VERIFICATION METHOD 1: Primary search with Perplexity
@@ -480,26 +486,29 @@ async def research_standards(req: ResearchStandardsRequest):
             json={
                 "model": "sonar",
                 "messages": [
-                    {"role": "system", "content": "You are an expert at finding USA Swimming qualifying time standards. Always respond with valid JSON only. No explanations."},
+                    {"role": "system", "content": "You are an expert at finding USA Swimming qualifying time standards. Always respond with valid JSON only. No explanations. Note: In swimming, Boys/Men and Girls/Women are interchangeable terms - some LSCs use 'Men 11-12' while others use 'Boys 11-12' for the same age group."},
                     {"role": "user", "content": f"""Search for {season_description} season USA Swimming qualifying standards:
-State: {req.stateLocation}
-Age Group: {req.ageGroup} {gender_display}  
+LSC: {req.stateLocation}
+Age Group: {req.ageGroup} ({gender_terms}) - Note: "Boys" and "Men" are interchangeable, as are "Girls" and "Women"
 Pool: {course_description}
 
-Find the cut times for standard events (50 Free, 100 Free, 200 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM).
+Find the OFFICIAL cut times for standard events (50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM).
 
 For each event provide BOTH:
-- Regional/JO qualifying time (the slower/easier time to achieve)
-- State/Championship time (the faster/harder time)
+- Regional/JO/Development qualifying time (the SLOWER/easier time to achieve)
+- State/Championship/Champs time (the FASTER/harder time)
 
-IMPORTANT: State/Champs times are ALWAYS faster (smaller numbers) than Regional times.
+CRITICAL: 
+- State/Champs times are ALWAYS faster (smaller numbers) than Regional times
+- Search for BOTH "{gender_display}" terminology as LSCs vary
+- Return EXACT times from official LSC documents, not estimates
 
 Return ONLY this JSON array format:
-[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"29.99","stateTimeStr":"27.49","source":"source name"}}]
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"29.99","stateTimeStr":"27.49","source":"official source name"}}]
 
 Return valid JSON array only, no other text."""}
                 ],
-                "temperature": 0.2,
+                "temperature": 0.1,
                 "max_tokens": 3000
             },
             timeout=45.0
