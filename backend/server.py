@@ -560,10 +560,10 @@ Return JSON array:
                 if uri.endswith('.pdf') and ('state' in uri.lower() or 'qualifying' in uri.lower() or 'time-standard' in uri.lower()):
                     pdf_urls.append(uri)
         
-        # STEP 2: If we found official PDFs, try to extract times directly from them
-        # This is more accurate than AI interpretation
-        if pdf_urls and OPENAI_API_KEY and (len(results) == 0 or any(not r.get('validated') for r in results)):
-            print(f"Found {len(pdf_urls)} PDF URLs, attempting direct extraction...")
+        # STEP 2: Use GPT-4o Vision to extract EXACT times from the PDF
+        # Perplexity finds PDFs, OpenAI Vision reads them accurately
+        if pdf_urls and OPENAI_API_KEY:
+            print(f"Found {len(pdf_urls)} PDF URLs, attempting GPT-4o Vision extraction...")
             
             # Try to find the most relevant PDF (age group + state)
             target_pdf = None
@@ -580,53 +580,109 @@ Return JSON array:
                         target_pdf = pdf_url
                         break
             
+            if not target_pdf:
+                target_pdf = pdf_urls[0]
+            
             if target_pdf:
-                print(f"Extracting from PDF: {target_pdf}")
+                print(f"Downloading PDF: {target_pdf}")
                 try:
-                    # Download PDF and convert first page to image for GPT-4 Vision
-                    import base64
-                    pdf_response = await client.get(target_pdf, timeout=30.0)
+                    pdf_response = await client.get(target_pdf, timeout=30.0, follow_redirects=True)
                     if pdf_response.status_code == 200:
-                        pdf_base64 = base64.b64encode(pdf_response.content).decode('utf-8')
+                        print(f"PDF downloaded, size: {len(pdf_response.content)} bytes")
                         
-                        # Use GPT-4o to extract times from PDF
-                        gender_term = "Men" if req.gender == "M" else "Women"
-                        alt_gender = "Boys" if req.gender == "M" else "Girls"
+                        # Convert PDF to images using PyMuPDF
+                        pdf_document = fitz.open(stream=pdf_response.content, filetype="pdf")
+                        images_base64 = []
                         
-                        vision_response = await client.post(
-                            f"{OPENAI_BASE_URL}/chat/completions",
-                            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-                            json={
-                                "model": "gpt-4o",
-                                "messages": [
-                                    {"role": "user", "content": [
-                                        {"type": "text", "text": f"""Extract the EXACT qualifying times from this official PDF for:
-Age Group: {req.ageGroup} {gender_term} (may also be labeled as {alt_gender})
-Course: {req.course}
-
-Look for the row/section for {req.ageGroup} {gender_term} or {req.ageGroup} {alt_gender}.
-
-Return a JSON array with the EXACT times shown in the document:
-[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"exact time from doc","stateTimeStr":"exact time from doc"}}]
-
-IMPORTANT: Copy the EXACT numbers from the document. Do not estimate or round.
-Include events: 50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM
-
-Return ONLY the JSON array."""},
-                                        {"type": "image_url", "image_url": {"url": f"data:application/pdf;base64,{pdf_base64}", "detail": "high"}}
-                                    ]}
-                                ],
-                                "max_tokens": 3000,
-                                "temperature": 0.1
-                            },
-                            timeout=60.0
-                        )
+                        # Convert first 3 pages to images (usually enough for time standards)
+                        for page_num in range(min(3, len(pdf_document))):
+                            page = pdf_document[page_num]
+                            # Render at 2x resolution for better OCR
+                            mat = fitz.Matrix(2, 2)
+                            pix = page.get_pixmap(matrix=mat)
+                            img_data = pix.tobytes("png")
+                            img_base64 = base64.b64encode(img_data).decode('utf-8')
+                            images_base64.append(img_base64)
+                            print(f"Converted page {page_num + 1} to image")
                         
-                        if vision_response.status_code == 200:
-                            vision_data = vision_response.json()
-                            vision_text = vision_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        pdf_document.close()
+                        
+                        if images_base64:
+                            # Use GPT-4o Vision to extract times from the images
+                            gender_term = "Men" if req.gender == "M" else "Women"
+                            alt_gender = "Boys" if req.gender == "M" else "Girls"
                             
-                            vision_json_match = re.search(r'\[.*\]', vision_text, re.DOTALL)
+                            # Build content with all page images
+                            content = [
+                                {"type": "text", "text": f"""Extract the EXACT qualifying times from this official swimming time standards document.
+
+SEARCH FOR: {req.ageGroup} {gender_term} (may also be labeled as "{req.ageGroup} {alt_gender}")
+COURSE TYPE: {req.course} (SCY = Short Course Yards)
+
+Find the table/section for {req.ageGroup} {gender_term} or {req.ageGroup} {alt_gender} and extract EXACT times for:
+- 50 Free, 100 Free, 200 Free, 500 Free
+- 50 Back, 100 Back  
+- 50 Breast, 100 Breast
+- 50 Fly, 100 Fly
+- 100 IM, 200 IM
+
+CRITICAL: Copy the EXACT numbers from the document. Do NOT estimate or round.
+
+Return a JSON array:
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"EXACT regional time","stateTimeStr":"EXACT state time"}}]
+
+Return ONLY the JSON array, no other text."""}
+                            ]
+                            
+                            # Add each page image
+                            for idx, img_b64 in enumerate(images_base64):
+                                content.append({
+                                    "type": "image_url", 
+                                    "image_url": {"url": f"data:image/png;base64,{img_b64}", "detail": "high"}
+                                })
+                            
+                            print(f"Sending {len(images_base64)} page images to GPT-4o Vision...")
+                            
+                            vision_response = await client.post(
+                                f"{OPENAI_BASE_URL}/chat/completions",
+                                headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+                                json={
+                                    "model": "gpt-4o",
+                                    "messages": [{"role": "user", "content": content}],
+                                    "max_tokens": 4000,
+                                    "temperature": 0
+                                },
+                                timeout=90.0
+                            )
+                            
+                            if vision_response.status_code == 200:
+                                vision_data = vision_response.json()
+                                vision_text = vision_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                                print(f"GPT-4o Vision response length: {len(vision_text)}")
+                                print(f"GPT-4o Vision preview: {vision_text[:300]}...")
+                                
+                                vision_json_match = re.search(r'\[.*\]', vision_text, re.DOTALL)
+                                if vision_json_match:
+                                    try:
+                                        pdf_results = json.loads(vision_json_match.group(0))
+                                        if pdf_results and len(pdf_results) > 0:
+                                            print(f"✓ Successfully extracted {len(pdf_results)} events from PDF via GPT-4o Vision")
+                                            # Use PDF results - they're more accurate
+                                            for r in pdf_results:
+                                                r['ageGroup'] = req.ageGroup
+                                                r['gender'] = req.gender
+                                                r['course'] = req.course
+                                                r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
+                                            results = pdf_results
+                                    except Exception as e:
+                                        print(f"Failed to parse GPT-4o Vision extraction: {e}")
+                            else:
+                                print(f"GPT-4o Vision request failed: {vision_response.status_code}")
+                                print(f"Error: {vision_response.text[:500]}")
+                except Exception as e:
+                    print(f"PDF extraction failed: {e}")
+                    import traceback
+                    traceback.print_exc()
                             if vision_json_match:
                                 try:
                                     pdf_results = json.loads(vision_json_match.group(0))
