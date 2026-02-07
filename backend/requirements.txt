@@ -5,3 +5,4 @@ bcrypt>=4.1.0
 httpx>=0.26.0
 pydantic>=2.5.0
 python-dotenv>=1.0.0
+pdf2image==1.17.0
