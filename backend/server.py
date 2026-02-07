@@ -8,6 +8,10 @@ import os
 import httpx
 from datetime import datetime
 from dotenv import load_dotenv
+import fitz  # PyMuPDF for PDF to image conversion
+import io
+import base64
+from PIL import Image
 
 # Load environment variables from .env file
 load_dotenv()
