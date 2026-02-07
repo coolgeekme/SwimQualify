@@ -484,34 +484,33 @@ async def research_standards(req: ResearchStandardsRequest):
             "https://api.perplexity.ai/chat/completions",
             headers={"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "sonar",
+                "model": "sonar-pro",
                 "messages": [
-                    {"role": "system", "content": "You are an expert at finding USA Swimming qualifying time standards. Always respond with valid JSON only. No explanations. Note: In swimming, Boys/Men and Girls/Women are interchangeable terms - some LSCs use 'Men 11-12' while others use 'Boys 11-12' for the same age group."},
-                    {"role": "user", "content": f"""Search for {season_description} season USA Swimming qualifying standards:
-LSC: {req.stateLocation}
-Age Group: {req.ageGroup} ({gender_terms}) - Note: "Boys" and "Men" are interchangeable, as are "Girls" and "Women"
-Pool: {course_description}
+                    {"role": "system", "content": """You are extracting EXACT qualifying times from official USA Swimming LSC documents.
+CRITICAL RULES:
+1. Return ONLY times that appear EXACTLY in official documents
+2. Boys/Men and Girls/Women are interchangeable in swimming
+3. State/Champs times are ALWAYS faster (lower) than Regional times
+4. If you cannot find exact times, return empty array []
+5. Return valid JSON only, no markdown, no explanations"""},
+                    {"role": "user", "content": f"""Find the EXACT {season_description} {req.stateLocation} qualifying times for {req.ageGroup} {gender_terms}.
 
-Find the OFFICIAL cut times for standard events (50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM).
+Course: {course_description}
 
-For each event provide BOTH:
-- Regional/JO/Development qualifying time (the SLOWER/easier time to achieve)
-- State/Championship/Champs time (the FASTER/harder time)
+Look in the official {req.stateLocation} PDF documents for the {req.ageGroup} {gender_terms} section.
 
-CRITICAL: 
-- State/Champs times are ALWAYS faster (smaller numbers) than Regional times
-- Search for BOTH "{gender_display}" terminology as LSCs vary
-- Return EXACT times from official LSC documents, not estimates
+Extract EXACT times (copy the numbers exactly as shown) for:
+50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM
 
-Return ONLY this JSON array format:
-[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"29.99","stateTimeStr":"27.49","source":"official source name"}}]
+JSON format:
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"EXACT regional time","stateTimeStr":"EXACT state time","source":"document name"}}]
 
-Return valid JSON array only, no other text."""}
+Return the JSON array only."""}
                 ],
-                "temperature": 0.1,
-                "max_tokens": 3000
+                "temperature": 0,
+                "max_tokens": 4000
             },
-            timeout=45.0
+            timeout=60.0
         )
         
         if response.status_code != 200:
