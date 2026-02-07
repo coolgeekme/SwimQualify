@@ -1818,6 +1818,15 @@ const App: React.FC = () => {
                     </div>
                   )}
                   
+                  {/* Edit Warning */}
+                  <div className="bg-amber-900/20 p-3 rounded-xl border border-amber-600/30 flex items-start space-x-2">
+                    <Edit3 className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-amber-400">Click Times to Edit</p>
+                      <p className="text-[9px] text-amber-300/70">AI times may be incorrect. Click any time to manually correct it before applying.</p>
+                    </div>
+                  </div>
+                  
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
@@ -1847,17 +1856,37 @@ const App: React.FC = () => {
                               <p className="text-[9px] text-slate-500 font-black uppercase">{res.ageGroup} • {res.gender === 'M' ? 'Boys' : 'Girls'} • {res.distance}y</p>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
                             <div className="text-right">
-                              <p className="text-[8px] font-black uppercase text-blue-400">Regional (slower)</p>
-                              <p className="font-mono text-blue-300 font-bold text-sm">{res.regionalTimeStr || '-'}</p>
+                              <p className="text-[8px] font-black uppercase text-blue-400 mb-1">Regional (slower)</p>
+                              <input 
+                                type="text" 
+                                value={res.regionalTimeStr || ''} 
+                                onChange={(e) => {
+                                  const newResults = [...researchResults];
+                                  newResults[i] = { ...newResults[i], regionalTimeStr: e.target.value };
+                                  setResearchResults(newResults);
+                                }}
+                                className="w-20 bg-slate-900 border border-blue-500/50 rounded px-2 py-1 text-sm font-mono text-blue-300 font-bold text-center focus:border-blue-400 focus:outline-none"
+                                placeholder="MM:SS.ss"
+                              />
                             </div>
                             <div className="text-center text-slate-600">→</div>
                             <div className="text-right">
-                              <p className="text-[8px] font-black uppercase text-green-400">State (faster)</p>
-                              <p className="font-mono text-green-300 font-bold text-sm">{res.stateTimeStr || '-'}</p>
+                              <p className="text-[8px] font-black uppercase text-green-400 mb-1">State (faster)</p>
+                              <input 
+                                type="text" 
+                                value={res.stateTimeStr || ''} 
+                                onChange={(e) => {
+                                  const newResults = [...researchResults];
+                                  newResults[i] = { ...newResults[i], stateTimeStr: e.target.value };
+                                  setResearchResults(newResults);
+                                }}
+                                className="w-20 bg-slate-900 border border-green-500/50 rounded px-2 py-1 text-sm font-mono text-green-300 font-bold text-center focus:border-green-400 focus:outline-none"
+                                placeholder="MM:SS.ss"
+                              />
                             </div>
-                            <button onClick={() => syncSingleResult(res)} className="bg-blue-600/20 hover:bg-blue-600/40 p-2 rounded-lg transition-all ml-2">
+                            <button onClick={() => syncSingleResult(res)} className="bg-blue-600/20 hover:bg-blue-600/40 p-2 rounded-lg transition-all ml-1" title="Apply this event">
                               <Plus className="w-4 h-4 text-blue-400" />
                             </button>
                           </div>
