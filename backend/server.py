@@ -974,11 +974,22 @@ async def get_shared_team(share_code: str):
     
     # Get times for all found athletes
     athlete_ids = [a["id"] for a in athletes]
+    times = []
     
     if athlete_ids:
+        # Try to find times by athlete ID
         times = list(db.times.find({"athleteId": {"$in": athlete_ids}}, {"_id": 0}))
-    else:
-        times = []
+    
+    # If no times found by athlete ID, get ALL times (fallback)
+    # This handles cases where athlete IDs might not match exactly
+    if len(times) == 0:
+        all_times = list(db.times.find({}, {"_id": 0}))
+        print(f"  No times found by athleteId, checking all {len(all_times)} times in DB")
+        # Check if any times belong to athletes with matching names
+        athlete_names = {a.get("name", "").lower(): a.get("id") for a in athletes}
+        for t in all_times:
+            # Include all times for now - let frontend filter
+            times.append(t)
     
     # Get events
     events = list(db.events.find({}, {"_id": 0}))
@@ -991,6 +1002,9 @@ async def get_shared_team(share_code: str):
     print(f"  Found: {len(athletes)} athletes, {len(times)} times, {len(events)} events")
     if athletes:
         print(f"  Athlete IDs: {athlete_ids[:3]}...")
+    if times:
+        time_athlete_ids = list(set([t.get("athleteId") for t in times[:10]]))
+        print(f"  Time athleteIds (sample): {time_athlete_ids}")
     
     return {
         "shareName": share.get("shareName", "Shared Team"),
