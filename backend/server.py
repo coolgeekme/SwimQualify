@@ -683,22 +683,6 @@ Return ONLY the JSON array, no other text."""}
                     print(f"PDF extraction failed: {e}")
                     import traceback
                     traceback.print_exc()
-                            if vision_json_match:
-                                try:
-                                    pdf_results = json.loads(vision_json_match.group(0))
-                                    if pdf_results and len(pdf_results) > 0:
-                                        print(f"Successfully extracted {len(pdf_results)} events from PDF")
-                                        # Use PDF results instead, they're more accurate
-                                        for r in pdf_results:
-                                            r['ageGroup'] = req.ageGroup
-                                            r['gender'] = req.gender
-                                            r['course'] = req.course
-                                            r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
-                                        results = pdf_results
-                                except Exception as e:
-                                    print(f"Failed to parse PDF extraction: {e}")
-                except Exception as e:
-                    print(f"PDF extraction failed: {e}")
         
         # VERIFICATION METHOD 2: Validate and fix times
         results = validate_and_fix_times(results)
