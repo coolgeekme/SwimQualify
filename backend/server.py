@@ -528,6 +528,7 @@ Return valid JSON array only, no other text."""}
         json_match = re.search(r'\[.*\]', text, re.DOTALL)
         results = []
         citations = []
+        pdf_urls = []
         
         if json_match:
             try:
@@ -543,14 +544,8 @@ Return valid JSON array only, no other text."""}
             except:
                 pass
         
-        # VERIFICATION METHOD 2: Validate and fix times
-        results = validate_and_fix_times(results)
-        
-        # Count validation issues
-        validation_issues = sum(1 for r in results if not r.get('validated', True))
-        
         if data.get("citations"):
-            # Extract domain name for better display
+            # Extract domain name for better display and find PDF URLs
             import re as regex
             citations = []
             for i, uri in enumerate(data["citations"]):
@@ -561,6 +556,100 @@ Return valid JSON array only, no other text."""}
                 else:
                     title = f"Source {i+1}"
                 citations.append({"title": title, "uri": uri})
+                
+                # Collect PDF URLs for direct extraction
+                if uri.endswith('.pdf') and ('state' in uri.lower() or 'qualifying' in uri.lower() or 'time-standard' in uri.lower()):
+                    pdf_urls.append(uri)
+        
+        # STEP 2: If we found official PDFs, try to extract times directly from them
+        # This is more accurate than AI interpretation
+        if pdf_urls and OPENAI_API_KEY and (len(results) == 0 or any(not r.get('validated') for r in results)):
+            print(f"Found {len(pdf_urls)} PDF URLs, attempting direct extraction...")
+            
+            # Try to find the most relevant PDF (age group + state)
+            target_pdf = None
+            for pdf_url in pdf_urls:
+                pdf_lower = pdf_url.lower()
+                if 'age-group' in pdf_lower and 'state' in pdf_lower:
+                    target_pdf = pdf_url
+                    break
+            
+            if not target_pdf and pdf_urls:
+                # Fall back to first state-related PDF
+                for pdf_url in pdf_urls:
+                    if 'state' in pdf_url.lower():
+                        target_pdf = pdf_url
+                        break
+            
+            if target_pdf:
+                print(f"Extracting from PDF: {target_pdf}")
+                try:
+                    # Download PDF and convert first page to image for GPT-4 Vision
+                    import base64
+                    pdf_response = await client.get(target_pdf, timeout=30.0)
+                    if pdf_response.status_code == 200:
+                        pdf_base64 = base64.b64encode(pdf_response.content).decode('utf-8')
+                        
+                        # Use GPT-4o to extract times from PDF
+                        gender_term = "Men" if req.gender == "M" else "Women"
+                        alt_gender = "Boys" if req.gender == "M" else "Girls"
+                        
+                        vision_response = await client.post(
+                            f"{OPENAI_BASE_URL}/chat/completions",
+                            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+                            json={
+                                "model": "gpt-4o",
+                                "messages": [
+                                    {"role": "user", "content": [
+                                        {"type": "text", "text": f"""Extract the EXACT qualifying times from this official PDF for:
+Age Group: {req.ageGroup} {gender_term} (may also be labeled as {alt_gender})
+Course: {req.course}
+
+Look for the row/section for {req.ageGroup} {gender_term} or {req.ageGroup} {alt_gender}.
+
+Return a JSON array with the EXACT times shown in the document:
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"exact time from doc","stateTimeStr":"exact time from doc"}}]
+
+IMPORTANT: Copy the EXACT numbers from the document. Do not estimate or round.
+Include events: 50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM
+
+Return ONLY the JSON array."""},
+                                        {"type": "image_url", "image_url": {"url": f"data:application/pdf;base64,{pdf_base64}", "detail": "high"}}
+                                    ]}
+                                ],
+                                "max_tokens": 3000,
+                                "temperature": 0.1
+                            },
+                            timeout=60.0
+                        )
+                        
+                        if vision_response.status_code == 200:
+                            vision_data = vision_response.json()
+                            vision_text = vision_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            
+                            vision_json_match = re.search(r'\[.*\]', vision_text, re.DOTALL)
+                            if vision_json_match:
+                                try:
+                                    pdf_results = json.loads(vision_json_match.group(0))
+                                    if pdf_results and len(pdf_results) > 0:
+                                        print(f"Successfully extracted {len(pdf_results)} events from PDF")
+                                        # Use PDF results instead, they're more accurate
+                                        for r in pdf_results:
+                                            r['ageGroup'] = req.ageGroup
+                                            r['gender'] = req.gender
+                                            r['course'] = req.course
+                                            r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
+                                        results = pdf_results
+                                except Exception as e:
+                                    print(f"Failed to parse PDF extraction: {e}")
+                except Exception as e:
+                    print(f"PDF extraction failed: {e}")
+        
+        # VERIFICATION METHOD 2: Validate and fix times
+        results = validate_and_fix_times(results)
+        
+        # Count validation issues
+        validation_issues = sum(1 for r in results if not r.get('validated', True))
         
         return {
             "results": results, 
