@@ -972,39 +972,29 @@ async def get_shared_team(share_code: str):
     if len(athletes) == 0:
         athletes = list(db.athletes.find({}, {"_id": 0}))
     
-    # Get times for all found athletes
+    # Get ALL times from database - don't filter by athleteId here
+    # Let the frontend filter since there might be ID format mismatches
+    all_times = list(db.times.find({}, {"_id": 0}))
+    
+    # Get athlete IDs
     athlete_ids = [a["id"] for a in athletes]
-    times = []
     
-    if athlete_ids:
-        # Try to find times by athlete ID
-        times = list(db.times.find({"athleteId": {"$in": athlete_ids}}, {"_id": 0}))
+    # Filter times to only those belonging to our athletes
+    times = [t for t in all_times if t.get("athleteId") in athlete_ids]
     
-    # If no times found by athlete ID, get ALL times (fallback)
-    # This handles cases where athlete IDs might not match exactly
-    if len(times) == 0:
-        all_times = list(db.times.find({}, {"_id": 0}))
-        print(f"  No times found by athleteId, checking all {len(all_times)} times in DB")
-        # Check if any times belong to athletes with matching names
-        athlete_names = {a.get("name", "").lower(): a.get("id") for a in athletes}
-        for t in all_times:
-            # Include all times for now - let frontend filter
-            times.append(t)
+    # Debug logging
+    print(f"Share {share_code}: teamId={team_id}, createdBy={created_by}")
+    print(f"  Athletes: {len(athletes)}, Athlete IDs: {athlete_ids}")
+    print(f"  All times in DB: {len(all_times)}, Filtered times: {len(times)}")
+    if all_times and len(times) == 0:
+        sample_athlete_ids = list(set([t.get("athleteId") for t in all_times[:5]]))
+        print(f"  Sample athleteIds in times: {sample_athlete_ids}")
     
     # Get events
     events = list(db.events.find({}, {"_id": 0}))
     
     # Get standards
     standards = list(db.standards.find({}, {"_id": 0}))
-    
-    # Debug logging
-    print(f"Share {share_code}: teamId={team_id}, createdBy={created_by}")
-    print(f"  Found: {len(athletes)} athletes, {len(times)} times, {len(events)} events")
-    if athletes:
-        print(f"  Athlete IDs: {athlete_ids[:3]}...")
-    if times:
-        time_athlete_ids = list(set([t.get("athleteId") for t in times[:10]]))
-        print(f"  Time athleteIds (sample): {time_athlete_ids}")
     
     return {
         "shareName": share.get("shareName", "Shared Team"),
