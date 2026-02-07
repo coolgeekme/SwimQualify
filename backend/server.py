@@ -273,13 +273,31 @@ async def create_standard(standard: StandardCreate):
 
 @app.post("/api/standards/bulk")
 async def create_standards_bulk(req: BulkStandardsCreate):
+    """Create or replace qualifying standards. Overwrites existing standards for the same event/age/gender/course/region."""
     created = []
     for s in req.standards:
         standard_dict = s.model_dump()
         standard_dict["id"] = standard_dict.get("id") or f"s_{int(datetime.utcnow().timestamp() * 1000)}_{len(created)}"
         standard_dict["createdAt"] = datetime.utcnow()
+        
+        # Delete any existing standard for this exact combination (event + age + gender + course + region)
+        # This ensures new times overwrite old ones
+        delete_filter = {
+            "eventId": standard_dict.get("eventId"),
+            "ageGroup": standard_dict.get("ageGroup"),
+            "gender": standard_dict.get("gender"),
+            "course": standard_dict.get("course"),
+            "region": standard_dict.get("region")
+        }
+        deleted = db.qualifyingStandards.delete_many(delete_filter)
+        if deleted.deleted_count > 0:
+            print(f"Replaced {deleted.deleted_count} existing standard(s) for {standard_dict.get('eventId')} {standard_dict.get('region')}")
+        
+        # Insert the new standard
         db.qualifyingStandards.insert_one(standard_dict)
         created.append(strip_mongo_id(standard_dict))
+    
+    print(f"Created/updated {len(created)} standards")
     return created
 
 @app.delete("/api/standards/{standard_id}")
