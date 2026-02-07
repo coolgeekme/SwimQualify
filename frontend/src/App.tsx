@@ -1640,8 +1640,10 @@ const App: React.FC = () => {
     
     // Sort events by: 1) State Qualified, 2) Regional Qualified, 3) Closest to Regional, 4) Closest to State
     const sortedEvents = [...selectedEvents].sort((a, b) => {
-      const aTime = getBestTime(a.id, currentAthlete.id);
-      const bTime = getBestTime(b.id, currentAthlete.id);
+      const aBestEntry = getBestTime(a.id, currentAthlete.id);
+      const bBestEntry = getBestTime(b.id, currentAthlete.id);
+      const aTime = aBestEntry?.timeSeconds;
+      const bTime = bBestEntry?.timeSeconds;
       
       const aStandards = standards.filter(s => s.eventId === a.id && s.gender === currentAthlete.gender && s.ageGroup === a.ageGroup);
       const bStandards = standards.filter(s => s.eventId === b.id && s.gender === currentAthlete.gender && s.ageGroup === b.ageGroup);
