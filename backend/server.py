@@ -484,28 +484,24 @@ async def research_standards(req: ResearchStandardsRequest):
             "https://api.perplexity.ai/chat/completions",
             headers={"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "sonar-pro",
+                "model": "sonar",
                 "messages": [
-                    {"role": "system", "content": """You are extracting EXACT qualifying times from official USA Swimming LSC documents.
-CRITICAL RULES:
-1. Return ONLY times that appear EXACTLY in official documents
-2. Boys/Men and Girls/Women are interchangeable in swimming
-3. State/Champs times are ALWAYS faster (lower) than Regional times
-4. If you cannot find exact times, return empty array []
-5. Return valid JSON only, no markdown, no explanations"""},
-                    {"role": "user", "content": f"""Find the EXACT {season_description} {req.stateLocation} qualifying times for {req.ageGroup} {gender_terms}.
+                    {"role": "system", "content": """You extract EXACT qualifying times from official USA Swimming LSC PDF documents.
+Rules:
+1. Boys/Men and Girls/Women are interchangeable terms in swimming
+2. State times are ALWAYS faster (smaller numbers) than Regional times  
+3. Return valid JSON array only, no markdown code blocks
+4. Copy times EXACTLY as they appear in official documents"""},
+                    {"role": "user", "content": f"""Find the {season_description} {req.stateLocation} official qualifying times.
 
+Age Group: {req.ageGroup} {gender_terms} (also check "{req.ageGroup} {'Men' if req.gender == 'M' else 'Women'}")
 Course: {course_description}
 
-Look in the official {req.stateLocation} PDF documents for the {req.ageGroup} {gender_terms} section.
-
-Extract EXACT times (copy the numbers exactly as shown) for:
+Look for the official PDF time standards document. Extract EXACT times for these events:
 50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM
 
-JSON format:
-[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"EXACT regional time","stateTimeStr":"EXACT state time","source":"document name"}}]
-
-Return the JSON array only."""}
+Return JSON array:
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"exact time","stateTimeStr":"exact time","source":"document name"}}]"""}
                 ],
                 "temperature": 0,
                 "max_tokens": 4000
