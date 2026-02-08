@@ -37,6 +37,10 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 
+# Anthropic Claude config (more accurate for document reading)
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+
 # Pydantic Models
 class LoginRequest(BaseModel):
     email: str
