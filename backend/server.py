@@ -614,31 +614,16 @@ Return JSON array:
                     if pdf_response.status_code == 200:
                         print(f"PDF downloaded, size: {len(pdf_response.content)} bytes")
                         
-                        # Convert PDF to images using PyMuPDF
-                        pdf_document = fitz.open(stream=pdf_response.content, filetype="pdf")
-                        images_base64 = []
+                        # Use Claude Vision to extract times - send PDF directly
+                        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
                         
-                        # Convert first 3 pages to images (usually enough for time standards)
-                        for page_num in range(min(3, len(pdf_document))):
-                            page = pdf_document[page_num]
-                            # Render at 2x resolution for better OCR
-                            mat = fitz.Matrix(2, 2)
-                            pix = page.get_pixmap(matrix=mat)
-                            img_data = pix.tobytes("png")
-                            img_base64 = base64.b64encode(img_data).decode('utf-8')
-                            images_base64.append(img_base64)
-                            print(f"Converted page {page_num + 1} to image")
+                        # Encode PDF as base64
+                        pdf_base64 = base64.b64encode(pdf_response.content).decode('utf-8')
                         
-                        pdf_document.close()
+                        gender_term = "Men" if req.gender == "M" else "Women"
+                        alt_gender = "Boys" if req.gender == "M" else "Girls"
                         
-                        if images_base64:
-                            # Use Claude Vision to extract times - more accurate for tables
-                            from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
-                            
-                            gender_term = "Men" if req.gender == "M" else "Women"
-                            alt_gender = "Boys" if req.gender == "M" else "Girls"
-                            
-                            prompt_text = f"""You are extracting EXACT qualifying times from an official USA Swimming time standards PDF.
+                        prompt_text = f"""You are extracting EXACT qualifying times from this official USA Swimming time standards PDF.
 
 SEARCH FOR THIS EXACT ROW: {req.ageGroup} {gender_term} (may also appear as "{req.ageGroup} {alt_gender}")
 COURSE TYPE: {req.course} (SCY = Short Course Yards, SCM = Short Course Meters, LCM = Long Course Meters)
@@ -646,7 +631,7 @@ COURSE TYPE: {req.course} (SCY = Short Course Yards, SCM = Short Course Meters, 
 CRITICAL INSTRUCTIONS:
 1. Find the EXACT row for {req.ageGroup} {gender_term} or {req.ageGroup} {alt_gender}
 2. Copy the EXACT numbers shown - do NOT round, estimate, or modify
-3. The document may have columns for different cut levels (State/Champs vs Regional/JO)
+3. The document has columns for different cut levels (State/Champs vs Regional/JO)
 4. State/Champs times are FASTER (smaller numbers) than Regional times
 
 Extract times for these events if present:
@@ -662,41 +647,41 @@ Return ONLY a JSON array in this exact format:
 If a time is not shown or unclear, use "N/A" for that field.
 Return ONLY the JSON array, no explanation."""
 
-                            print(f"Sending {len(images_base64)} page images to Claude Vision...")
-                            
-                            # Create file contents for Claude (images as PNG)
-                            file_contents = [FileContent(content_type="image/png", file_content_base64=img_b64) for img_b64 in images_base64]
-                            
-                            chat = LlmChat(
-                                api_key=EMERGENT_LLM_KEY,
-                                session_id=f"pdf-extract-{req.stateLocation[:10]}",
-                                system_message="You are an expert at reading swimming time standards documents. You extract exact times without modification."
-                            ).with_model("anthropic", "claude-sonnet-4-20250514")
-                            
-                            user_message = UserMessage(
-                                text=prompt_text,
-                                file_contents=file_contents
-                            )
-                            
-                            vision_text = await chat.send_message(user_message)
-                            print(f"Claude Vision response length: {len(vision_text)}")
-                            print(f"Claude Vision preview: {vision_text[:300]}...")
-                            
-                            vision_json_match = re.search(r'\[.*\]', vision_text, re.DOTALL)
-                            if vision_json_match:
-                                try:
-                                    pdf_results = json.loads(vision_json_match.group(0))
-                                    if pdf_results and len(pdf_results) > 0:
-                                        print(f"✓ Successfully extracted {len(pdf_results)} events from PDF via Claude Vision")
-                                        # Use PDF results - they're more accurate
-                                        for r in pdf_results:
-                                            r['ageGroup'] = req.ageGroup
-                                            r['gender'] = req.gender
-                                            r['course'] = req.course
-                                            r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
-                                        results = pdf_results
-                                except Exception as e:
-                                    print(f"Failed to parse Claude Vision extraction: {e}")
+                        print(f"Sending PDF directly to Claude...")
+                        
+                        # Send PDF directly to Claude
+                        file_contents = [FileContent(content_type="application/pdf", file_content_base64=pdf_base64)]
+                        
+                        chat = LlmChat(
+                            api_key=EMERGENT_LLM_KEY,
+                            session_id=f"pdf-extract-{req.stateLocation[:10]}",
+                            system_message="You are an expert at reading swimming time standards documents. You extract exact times without modification."
+                        ).with_model("anthropic", "claude-sonnet-4-20250514")
+                        
+                        user_message = UserMessage(
+                            text=prompt_text,
+                            file_contents=file_contents
+                        )
+                        
+                        vision_text = await chat.send_message(user_message)
+                        print(f"Claude response length: {len(vision_text)}")
+                        print(f"Claude preview: {vision_text[:300]}...")
+                        
+                        vision_json_match = re.search(r'\[.*\]', vision_text, re.DOTALL)
+                        if vision_json_match:
+                            try:
+                                pdf_results = json.loads(vision_json_match.group(0))
+                                if pdf_results and len(pdf_results) > 0:
+                                    print(f"✓ Successfully extracted {len(pdf_results)} events from PDF via Claude")
+                                    # Use PDF results - they're more accurate
+                                    for r in pdf_results:
+                                        r['ageGroup'] = req.ageGroup
+                                        r['gender'] = req.gender
+                                        r['course'] = req.course
+                                        r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
+                                    results = pdf_results
+                            except Exception as e:
+                                print(f"Failed to parse Claude extraction: {e}")
                 except Exception as e:
                     print(f"PDF extraction failed: {e}")
                     import traceback
