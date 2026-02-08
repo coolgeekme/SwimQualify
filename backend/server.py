@@ -633,7 +633,7 @@ Return JSON array:
                         
                         if images_base64:
                             # Use Claude Vision to extract times - more accurate for tables
-                            from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+                            from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
                             
                             gender_term = "Men" if req.gender == "M" else "Women"
                             alt_gender = "Boys" if req.gender == "M" else "Girls"
@@ -664,18 +664,18 @@ Return ONLY the JSON array, no explanation."""
 
                             print(f"Sending {len(images_base64)} page images to Claude Vision...")
                             
-                            # Create image contents for Claude
-                            image_contents = [ImageContent(image_base64=img_b64) for img_b64 in images_base64]
+                            # Create file contents for Claude (images as PNG)
+                            file_contents = [FileContent(content_type="image/png", file_content_base64=img_b64) for img_b64 in images_base64]
                             
                             chat = LlmChat(
                                 api_key=EMERGENT_LLM_KEY,
-                                session_id=f"pdf-extract-{share_code if 'share_code' in dir() else 'search'}",
+                                session_id=f"pdf-extract-{req.stateLocation[:10]}",
                                 system_message="You are an expert at reading swimming time standards documents. You extract exact times without modification."
                             ).with_model("anthropic", "claude-sonnet-4-20250514")
                             
                             user_message = UserMessage(
                                 text=prompt_text,
-                                image_contents=image_contents
+                                file_contents=file_contents
                             )
                             
                             vision_text = await chat.send_message(user_message)
