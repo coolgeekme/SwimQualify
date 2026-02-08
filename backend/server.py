@@ -582,10 +582,12 @@ Return JSON array:
                 if uri.endswith('.pdf') and ('state' in uri.lower() or 'qualifying' in uri.lower() or 'time-standard' in uri.lower()):
                     pdf_urls.append(uri)
         
-        # STEP 2: Use GPT-4o Vision to extract EXACT times from the PDF
-        # Perplexity finds PDFs, OpenAI Vision reads them accurately
-        if pdf_urls and OPENAI_API_KEY:
-            print(f"Found {len(pdf_urls)} PDF URLs, attempting GPT-4o Vision extraction...")
+        # STEP 2: Use Claude Vision to extract EXACT times from the PDF
+        # Claude is more accurate at reading tables from documents
+        EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+        
+        if pdf_urls and EMERGENT_LLM_KEY:
+            print(f"Found {len(pdf_urls)} PDF URLs, attempting Claude Vision extraction...")
             
             # Try to find the most relevant PDF (age group + state)
             target_pdf = None
@@ -630,77 +632,71 @@ Return JSON array:
                         pdf_document.close()
                         
                         if images_base64:
-                            # Use GPT-4o Vision to extract times from the images
+                            # Use Claude Vision to extract times - more accurate for tables
+                            from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+                            
                             gender_term = "Men" if req.gender == "M" else "Women"
                             alt_gender = "Boys" if req.gender == "M" else "Girls"
                             
-                            # Build content with all page images
-                            content = [
-                                {"type": "text", "text": f"""Extract the EXACT qualifying times from this official swimming time standards document.
+                            prompt_text = f"""You are extracting EXACT qualifying times from an official USA Swimming time standards PDF.
 
-SEARCH FOR: {req.ageGroup} {gender_term} (may also be labeled as "{req.ageGroup} {alt_gender}")
-COURSE TYPE: {req.course} (SCY = Short Course Yards)
+SEARCH FOR THIS EXACT ROW: {req.ageGroup} {gender_term} (may also appear as "{req.ageGroup} {alt_gender}")
+COURSE TYPE: {req.course} (SCY = Short Course Yards, SCM = Short Course Meters, LCM = Long Course Meters)
 
-Find the table/section for {req.ageGroup} {gender_term} or {req.ageGroup} {alt_gender} and extract EXACT times for:
+CRITICAL INSTRUCTIONS:
+1. Find the EXACT row for {req.ageGroup} {gender_term} or {req.ageGroup} {alt_gender}
+2. Copy the EXACT numbers shown - do NOT round, estimate, or modify
+3. The document may have columns for different cut levels (State/Champs vs Regional/JO)
+4. State/Champs times are FASTER (smaller numbers) than Regional times
+
+Extract times for these events if present:
 - 50 Free, 100 Free, 200 Free, 500 Free
-- 50 Back, 100 Back  
-- 50 Breast, 100 Breast
+- 50 Back, 100 Back
+- 50 Breast, 100 Breast  
 - 50 Fly, 100 Fly
 - 100 IM, 200 IM
 
-CRITICAL: Copy the EXACT numbers from the document. Do NOT estimate or round.
+Return ONLY a JSON array in this exact format:
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"EXACT time from Regional column","stateTimeStr":"EXACT time from State column"}}]
 
-Return a JSON array:
-[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"EXACT regional time","stateTimeStr":"EXACT state time"}}]
+If a time is not shown or unclear, use "N/A" for that field.
+Return ONLY the JSON array, no explanation."""
 
-Return ONLY the JSON array, no other text."""}
-                            ]
+                            print(f"Sending {len(images_base64)} page images to Claude Vision...")
                             
-                            # Add each page image
-                            for idx, img_b64 in enumerate(images_base64):
-                                content.append({
-                                    "type": "image_url", 
-                                    "image_url": {"url": f"data:image/png;base64,{img_b64}", "detail": "high"}
-                                })
+                            # Create image contents for Claude
+                            image_contents = [ImageContent(image_base64=img_b64) for img_b64 in images_base64]
                             
-                            print(f"Sending {len(images_base64)} page images to GPT-4o Vision...")
+                            chat = LlmChat(
+                                api_key=EMERGENT_LLM_KEY,
+                                session_id=f"pdf-extract-{share_code if 'share_code' in dir() else 'search'}",
+                                system_message="You are an expert at reading swimming time standards documents. You extract exact times without modification."
+                            ).with_model("anthropic", "claude-sonnet-4-20250514")
                             
-                            vision_response = await client.post(
-                                f"{OPENAI_BASE_URL}/chat/completions",
-                                headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-                                json={
-                                    "model": "gpt-4o",
-                                    "messages": [{"role": "user", "content": content}],
-                                    "max_tokens": 4000,
-                                    "temperature": 0
-                                },
-                                timeout=90.0
+                            user_message = UserMessage(
+                                text=prompt_text,
+                                image_contents=image_contents
                             )
                             
-                            if vision_response.status_code == 200:
-                                vision_data = vision_response.json()
-                                vision_text = vision_data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                                print(f"GPT-4o Vision response length: {len(vision_text)}")
-                                print(f"GPT-4o Vision preview: {vision_text[:300]}...")
-                                
-                                vision_json_match = re.search(r'\[.*\]', vision_text, re.DOTALL)
-                                if vision_json_match:
-                                    try:
-                                        pdf_results = json.loads(vision_json_match.group(0))
-                                        if pdf_results and len(pdf_results) > 0:
-                                            print(f"✓ Successfully extracted {len(pdf_results)} events from PDF via GPT-4o Vision")
-                                            # Use PDF results - they're more accurate
-                                            for r in pdf_results:
-                                                r['ageGroup'] = req.ageGroup
-                                                r['gender'] = req.gender
-                                                r['course'] = req.course
-                                                r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
-                                            results = pdf_results
-                                    except Exception as e:
-                                        print(f"Failed to parse GPT-4o Vision extraction: {e}")
-                            else:
-                                print(f"GPT-4o Vision request failed: {vision_response.status_code}")
-                                print(f"Error: {vision_response.text[:500]}")
+                            vision_text = await chat.send_message(user_message)
+                            print(f"Claude Vision response length: {len(vision_text)}")
+                            print(f"Claude Vision preview: {vision_text[:300]}...")
+                            
+                            vision_json_match = re.search(r'\[.*\]', vision_text, re.DOTALL)
+                            if vision_json_match:
+                                try:
+                                    pdf_results = json.loads(vision_json_match.group(0))
+                                    if pdf_results and len(pdf_results) > 0:
+                                        print(f"✓ Successfully extracted {len(pdf_results)} events from PDF via Claude Vision")
+                                        # Use PDF results - they're more accurate
+                                        for r in pdf_results:
+                                            r['ageGroup'] = req.ageGroup
+                                            r['gender'] = req.gender
+                                            r['course'] = req.course
+                                            r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
+                                        results = pdf_results
+                                except Exception as e:
+                                    print(f"Failed to parse Claude Vision extraction: {e}")
                 except Exception as e:
                     print(f"PDF extraction failed: {e}")
                     import traceback
