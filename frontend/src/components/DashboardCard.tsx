@@ -2,16 +2,18 @@
 import React from 'react';
 import { Event, TimeEntry, QualifyingStandard } from '../types';
 import { formatTime } from '../utils/time';
-import { Trophy, TrendingUp, ChevronRight, Award, Star, CheckCircle2 } from 'lucide-react';
+import { getAchievementLevel, getLevelColor, getLevelDescription, getNextLevel } from '../utils/motivationalTimes';
+import { Trophy, TrendingUp, ChevronRight, Star, CheckCircle2, Zap } from 'lucide-react';
 
 interface Props {
   event: Event;
   bestTime: TimeEntry | undefined;
   standards: QualifyingStandard[];
+  athleteGender: 'M' | 'F';
   onClick: () => void;
 }
 
-const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, onClick }) => {
+const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGender, onClick }) => {
   const regionalCut = standards.find(s => s.region === 'Regional');
   const stateCut = standards.find(s => s.region === 'State');
 
@@ -26,6 +28,16 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, onClick })
 
   const regionalGap = regionalCut ? getGap(regionalCut.cutTimeSeconds) : null;
   const stateGap = stateCut ? getGap(stateCut.cutTimeSeconds) : null;
+
+  // Get USA Swimming Motivational Time Standard level
+  const achievementLevel = bestTime 
+    ? getAchievementLevel(bestTime.timeSeconds, event.name, event.ageGroup, athleteGender, event.course)
+    : null;
+  const levelColors = getLevelColor(achievementLevel);
+  const levelDescription = getLevelDescription(achievementLevel);
+  const nextLevelInfo = bestTime 
+    ? getNextLevel(bestTime.timeSeconds, event.name, event.ageGroup, athleteGender, event.course)
+    : null;
 
   return (
     <div 
@@ -47,12 +59,36 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, onClick })
         </div>
       </div>
 
-      {/* Best Time Display */}
+      {/* Best Time Display with Motivational Standard */}
       <div className="bg-slate-50 rounded-lg p-3 mb-3">
-        <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Best Time</p>
-        <p className="text-2xl font-black text-slate-900" data-testid={`best-time-${event.id}`}>
-          {bestTime ? formatTime(bestTime.timeSeconds) : '--.--'}
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Best Time</p>
+            <p className="text-2xl font-black text-slate-900" data-testid={`best-time-${event.id}`}>
+              {bestTime ? formatTime(bestTime.timeSeconds) : '--.--'}
+            </p>
+          </div>
+          {/* Motivational Standard Badge */}
+          {achievementLevel && (
+            <div 
+              className={`${levelColors.bg} ${levelColors.border} border px-3 py-1.5 rounded-lg text-center`}
+              data-testid={`motivational-level-${event.id}`}
+              title={levelDescription}
+            >
+              <p className={`text-lg font-black ${levelColors.text}`}>{achievementLevel}</p>
+              <p className="text-[8px] font-bold text-slate-500 uppercase">USA Time</p>
+            </div>
+          )}
+        </div>
+        {/* Next motivational level to achieve */}
+        {nextLevelInfo && bestTime && (
+          <div className="mt-2 pt-2 border-t border-slate-200 flex items-center space-x-1.5">
+            <Zap className="w-3 h-3 text-amber-500" />
+            <p className="text-[10px] text-slate-500">
+              <span className="font-bold text-slate-700">{formatTime(nextLevelInfo.timeNeeded)}</span> for <span className="font-black text-amber-600">{nextLevelInfo.level}</span>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Qualification Status Badges */}
