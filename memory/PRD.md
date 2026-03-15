@@ -34,10 +34,12 @@ SwimQual.app - A swim time tracking application with MongoDB backend, featuring:
 
 ## Recent Changes
 - Mar 15, 2026: Integrated USA Swimming Motivational Time Standards display on dashboard
-  - Added `/app/frontend/src/utils/motivationalTimes.ts` with all SCY standards for 10U, 11-12, 13-14
+  - Added `/app/frontend/src/utils/motivationalTimes.ts` with **OFFICIAL 2024-2028** SCY standards for 10U, 11-12, 13-14 (boys & girls)
+  - Source: https://swimgoals.app/guides/motivational-times (USA Swimming official data)
   - Updated `DashboardCard.tsx` to show achievement level badge (B/BB/A/AA/AAA/AAAA) next to best time
-  - Shows next target time to reach next level (e.g., "30.39 for BB")
+  - Shows next target time to reach next level (e.g., "30.49 for BB")
   - Color-coded badges: purple (AAAA), amber (AAA), blue (AA), green (A), teal (BB), slate (B)
+  - Uses age-group standards (11-12 combined), not single-age standards
 
 ## P0 - Critical Pending Issues
 - [ ] Team sharing page not displaying swimmer times (backend fix deployed, needs user verification after redeploy)
