@@ -1483,45 +1483,45 @@ const App: React.FC = () => {
 
   const renderFocusScreen = () => {
     if (!currentAthlete) return (
-      <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
-        <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+      <div className="text-center py-20 glass-card rounded-2xl">
+        <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
         <p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p>
-        <button onClick={() => handleTabChange('roster')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Choose Swimmer</button>
+        <button onClick={() => handleTabChange('roster')} className="bg-sky-500 hover:bg-sky-400 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs glow-blue transition-all btn-press">Choose Swimmer</button>
       </div>
     );
 
     return (
       <div className="space-y-6 pb-20">
         {/* AI Technique Coach Section */}
-        <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl border border-slate-800 relative overflow-hidden">
-          <Sparkles className="absolute -right-2 -top-2 w-24 h-24 text-blue-500/10" />
+        <div className="glass-card rounded-2xl p-6 relative overflow-hidden">
+          <Sparkles className="absolute -right-2 -top-2 w-24 h-24 text-sky-500/10" />
           <div className="flex items-center justify-between mb-4 relative z-10">
             <div className="flex items-center space-x-3">
-              <div className="bg-blue-600 p-2 rounded-lg"><Lightbulb className="w-5 h-5 text-white" /></div>
+              <div className="bg-gradient-to-br from-sky-500 to-blue-600 p-3 rounded-xl shadow-lg shadow-sky-500/30"><Lightbulb className="w-5 h-5 text-white" /></div>
               <div>
-                <h3 className="text-lg font-black italic uppercase">AI Technique Coach</h3>
-                <p className="text-[10px] text-slate-400">Personalized tips based on {currentAthlete.name}'s times</p>
+                <h3 className="font-display text-xl font-bold text-white uppercase">AI Technique Coach</h3>
+                <p className="text-[10px] text-slate-500 font-medium">Personalized tips based on {currentAthlete.name}'s times</p>
               </div>
             </div>
-            <button onClick={handleGenerateStrokeInsights} disabled={isGeneratingInsights} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all flex items-center space-x-2">
-              {isGeneratingInsights ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              <span className="text-xs font-bold uppercase">{isGeneratingInsights ? 'Analyzing...' : 'Generate Tips'}</span>
+            <button onClick={handleGenerateStrokeInsights} disabled={isGeneratingInsights} className="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl transition-all flex items-center space-x-2 btn-press">
+              {isGeneratingInsights ? <RefreshCw className="w-4 h-4 text-sky-400 animate-spin" /> : <RefreshCw className="w-4 h-4 text-sky-400" />}
+              <span className="text-xs font-bold uppercase text-white">{isGeneratingInsights ? 'Analyzing...' : 'Generate Tips'}</span>
             </button>
           </div>
           
           {Object.keys(strokeInsights).length === 0 && !isGeneratingInsights && (
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <p className="text-sm text-slate-400 text-center">Click "Generate Tips" to get AI-powered technique advice based on recorded times</p>
+            <div className="bg-slate-900/60 rounded-xl p-4 border border-white/5">
+              <p className="text-sm text-slate-500 text-center">Click "Generate Tips" to get AI-powered technique advice based on recorded times</p>
             </div>
           )}
 
           {Object.keys(strokeInsights).length > 0 && (
             <div className="space-y-3 mt-4">
               {Object.entries(strokeInsights).map(([stroke, tip]) => (
-                <div key={stroke} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <div key={stroke} className="bg-slate-900/60 rounded-xl p-4 border border-white/5">
                   <div className="flex items-center space-x-2 mb-2">
-                    <Award className="w-4 h-4 text-blue-400" />
-                    <p className="text-xs font-black uppercase text-blue-400">{stroke}</p>
+                    <Award className="w-4 h-4 text-sky-400" />
+                    <p className="text-xs font-bold uppercase text-sky-400">{stroke}</p>
                   </div>
                   <p className="text-sm text-slate-300 leading-relaxed">{tip}</p>
                 </div>
@@ -1531,12 +1531,12 @@ const App: React.FC = () => {
         </div>
 
         {/* Stroke Guide for Parents & Fans */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+        <div className="glass-card rounded-2xl p-6">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="bg-purple-100 p-2 rounded-lg"><Heart className="w-5 h-5 text-purple-600" /></div>
+            <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 rounded-xl shadow-lg shadow-purple-500/30"><Heart className="w-5 h-5 text-white" /></div>
             <div>
-              <h3 className="text-lg font-black italic uppercase text-slate-800">Stroke Guide</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase">For Parents & Fans - What to Watch</p>
+              <h3 className="font-display text-xl font-bold text-white uppercase">Stroke Guide</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase">For Parents & Fans - What to Watch</p>
             </div>
           </div>
 
@@ -1545,10 +1545,10 @@ const App: React.FC = () => {
               <button
                 key={stroke}
                 onClick={() => setSelectedStrokeGuide(selectedStrokeGuide === stroke ? null : stroke)}
-                className={`p-3 rounded-xl text-xs font-black uppercase transition-all ${
+                className={`p-3 rounded-xl text-xs font-bold uppercase transition-all btn-press ${
                   selectedStrokeGuide === stroke 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-600'
+                    ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30' 
+                    : 'bg-slate-900/60 text-slate-400 hover:bg-purple-500/20 hover:text-purple-400 border border-white/5'
                 }`}
               >
                 {stroke === 'Individual Medley' ? 'IM' : stroke}
@@ -1557,20 +1557,20 @@ const App: React.FC = () => {
           </div>
 
           {selectedStrokeGuide && strokeGuide[selectedStrokeGuide] && (
-            <div className="bg-purple-50 rounded-xl p-5 border border-purple-100 space-y-4">
+            <div className="bg-slate-900/60 rounded-xl p-5 border border-white/5 space-y-4">
               <div>
-                <p className="text-xs font-black uppercase text-purple-600 mb-2">What is {selectedStrokeGuide}?</p>
-                <p className="text-sm text-slate-700 leading-relaxed">{strokeGuide[selectedStrokeGuide].description}</p>
+                <p className="text-xs font-bold uppercase text-purple-400 mb-2">What is {selectedStrokeGuide}?</p>
+                <p className="text-sm text-slate-300 leading-relaxed">{strokeGuide[selectedStrokeGuide].description}</p>
               </div>
               
               <div>
-                <p className="text-xs font-black uppercase text-purple-600 mb-2 flex items-center">
+                <p className="text-xs font-bold uppercase text-purple-400 mb-2 flex items-center">
                   <Activity className="w-4 h-4 mr-1" /> What to Watch For
                 </p>
                 <ul className="space-y-2">
                   {strokeGuide[selectedStrokeGuide].whatToWatch.map((item, i) => (
-                    <li key={i} className="flex items-start space-x-2 text-sm text-slate-600">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                    <li key={i} className="flex items-start space-x-2 text-sm text-slate-400">
+                      <CheckCircle2 className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
                       <span>{item}</span>
                     </li>
                   ))}
@@ -1578,12 +1578,12 @@ const App: React.FC = () => {
               </div>
 
               <div>
-                <p className="text-xs font-black uppercase text-purple-600 mb-2 flex items-center">
+                <p className="text-xs font-bold uppercase text-purple-400 mb-2 flex items-center">
                   <Zap className="w-4 h-4 mr-1" /> Key Moments to Watch
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {strokeGuide[selectedStrokeGuide].keyMoments.map((moment, i) => (
-                    <span key={i} className="bg-white px-3 py-1.5 rounded-lg text-xs font-bold text-purple-700 border border-purple-200">
+                    <span key={i} className="bg-purple-500/20 px-3 py-1.5 rounded-lg text-xs font-bold text-purple-400 border border-purple-500/30">
                       {moment}
                     </span>
                   ))}
@@ -1591,8 +1591,8 @@ const App: React.FC = () => {
               </div>
 
               {/* Video Tutorials Section */}
-              <div className="pt-4 border-t border-purple-200">
-                <p className="text-xs font-black uppercase text-purple-600 mb-3 flex items-center">
+              <div className="pt-4 border-t border-white/5">
+                <p className="text-xs font-bold uppercase text-purple-400 mb-3 flex items-center">
                   <ExternalLink className="w-4 h-4 mr-1" /> Video Tutorials
                 </p>
                 <div className="space-y-2">
@@ -1602,7 +1602,7 @@ const App: React.FC = () => {
                       href={video.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 bg-white rounded-lg border border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all group"
+                      className="flex items-center justify-between p-3 bg-slate-800/60 rounded-xl border border-white/5 hover:border-purple-500/30 hover:bg-purple-500/10 transition-all group"
                     >
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1611,11 +1611,11 @@ const App: React.FC = () => {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-800 group-hover:text-purple-700">{video.title}</p>
+                          <p className="text-sm font-bold text-white group-hover:text-purple-400">{video.title}</p>
                           <p className="text-[10px] text-slate-500 font-bold uppercase">{video.source}</p>
                         </div>
                       </div>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-purple-600" />
+                      <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-purple-400" />
                     </a>
                   ))}
                 </div>
@@ -1624,8 +1624,8 @@ const App: React.FC = () => {
           )}
 
           {!selectedStrokeGuide && (
-            <div className="bg-slate-50 rounded-xl p-4 text-center">
-              <p className="text-sm text-slate-400">Select a stroke above to learn what to watch for during the race</p>
+            <div className="bg-slate-900/60 rounded-xl p-4 text-center border border-white/5">
+              <p className="text-sm text-slate-500">Select a stroke above to learn what to watch for during the race</p>
             </div>
           )}
         </div>
@@ -1634,7 +1634,15 @@ const App: React.FC = () => {
   };
 
   const renderDashboard = () => {
-    if (!currentAthlete) return <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200"><Users className="w-12 h-12 text-slate-300 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p><button onClick={() => handleTabChange('roster')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Choose Swimmer</button></div>;
+    if (!currentAthlete) return (
+      <div className="text-center py-20 glass-card rounded-2xl">
+        <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+        <p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p>
+        <button onClick={() => handleTabChange('roster')} className="bg-sky-500 hover:bg-sky-400 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs glow-blue transition-all btn-press">
+          Choose Swimmer
+        </button>
+      </div>
+    );
     
     const selectedEvents = events.filter(e => currentAthlete.selectedEventIds.includes(e.id));
     
@@ -1690,17 +1698,72 @@ const App: React.FC = () => {
     
     return (
       <div className="space-y-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-black italic">{currentAthlete.name.charAt(0)}</div>
-            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Profile</p><h2 className="text-2xl font-black text-slate-800 italic uppercase leading-none">{currentAthlete.name}</h2><p className="text-xs font-bold text-blue-600 mt-1">{currentAthlete.ageGroup} • {currentAthlete.gender === 'M' ? 'Male' : 'Female'}</p></div>
+        {/* Hero Card with Season Status */}
+        <div className="glass-card rounded-2xl overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-sky-600/20 to-blue-900/40" />
+          <div className="absolute top-0 right-0 w-40 h-40 opacity-20">
+            <img src="https://images.pexels.com/photos/6011889/pexels-photo-6011889.jpeg?auto=compress&cs=tinysrgb&w=200" alt="" className="w-full h-full object-cover" />
           </div>
-          <div className="flex items-center space-x-2">
-            <button onClick={() => setCurrentScreen('scan-times')} className="bg-green-50 text-green-600 p-3 rounded-xl hover:bg-green-100 transition-all" title="Scan Heat Sheet"><Camera className="w-5 h-5" /></button>
-            <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-50 text-blue-600 p-3 rounded-xl hover:bg-blue-100 transition-all" title="Manage Events"><Edit3 className="w-5 h-5" /></button>
+          <div className="relative p-6">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-sky-400 mb-2">Season Status</p>
+            <h2 className="font-display text-3xl font-black text-white uppercase leading-tight mb-2">
+              Ready for the<br />Heat, {currentAthlete.name.split(' ')[0]}?
+            </h2>
+            <p className="text-sm text-slate-400">Your qualifying window is open. Time to make waves.</p>
           </div>
         </div>
-        {sortedEvents.length === 0 ? <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200"><Info className="w-10 h-10 text-slate-200 mx-auto mb-4" /><p className="text-slate-500 font-bold text-sm uppercase mb-4">No events selected</p><button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-xs">Manage My Events</button></div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{sortedEvents.map(event => <DashboardCard key={event.id} event={event} bestTime={getBestTime(event.id, currentAthlete.id)} standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} athleteGender={currentAthlete.gender} onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} />)}</div>}
+
+        {/* Athlete Profile Card */}
+        <div className="glass-card p-5 rounded-2xl flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-display font-black text-2xl shadow-lg shadow-sky-500/30">
+              {currentAthlete.name.charAt(0)}
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Current Profile</p>
+              <h2 className="font-display text-2xl font-black text-white uppercase leading-none">{currentAthlete.name}</h2>
+              <p className="text-xs font-medium text-sky-400 mt-1">{currentAthlete.ageGroup} • {currentAthlete.gender === 'M' ? 'Male' : 'Female'}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button onClick={() => setCurrentScreen('scan-times')} className="bg-emerald-500/10 text-emerald-400 p-3 rounded-xl hover:bg-emerald-500/20 transition-all btn-press" title="Scan Heat Sheet">
+              <Camera className="w-5 h-5" />
+            </button>
+            <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-sky-500/10 text-sky-400 p-3 rounded-xl hover:bg-sky-500/20 transition-all btn-press" title="Manage Events">
+              <Edit3 className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Section Title */}
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-xl font-bold text-white uppercase tracking-wide">Season Best</h3>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length} Events</span>
+        </div>
+
+        {/* Event Cards */}
+        {sortedEvents.length === 0 ? (
+          <div className="text-center py-16 glass-card rounded-2xl">
+            <Info className="w-10 h-10 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400 font-bold text-sm uppercase mb-4">No events selected</p>
+            <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-sky-500 hover:bg-sky-400 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs glow-blue transition-all btn-press">
+              Manage My Events
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sortedEvents.map(event => (
+              <DashboardCard 
+                key={event.id} 
+                event={event} 
+                bestTime={getBestTime(event.id, currentAthlete.id)} 
+                standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} 
+                athleteGender={currentAthlete.gender} 
+                onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} 
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -2242,8 +2305,8 @@ const App: React.FC = () => {
   const getContent = () => {
     switch (currentScreen) {
       case 'dashboard': return renderDashboard();
-      case 'event-detail': return selectedEventId && currentAthlete ? <div className="space-y-6 pb-10"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-start mb-8"><div><h3 className="text-3xl font-black text-slate-900 italic uppercase">{events.find(e => e.id === selectedEventId)?.name}</h3><div className="flex items-center space-x-2 mt-1"><p className="text-sm font-bold text-slate-400 uppercase">{events.find(e => e.id === selectedEventId)?.stroke}</p></div></div><button onClick={() => setCurrentScreen('add-time')} className="bg-blue-600 text-white p-3 rounded-xl shadow-lg hover:bg-blue-500 transition-all"><Plus className="w-6 h-6" /></button></div><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><RechartsLine data={times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id && !t.isDQ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(t => ({ date: new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), time: t.timeSeconds }))}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="date" tick={{fontSize: 9, fill: '#94a3b8'}} axisLine={false} tickLine={false} /><YAxis hide domain={['auto', 'auto']} /><Tooltip formatter={(v: number) => [formatTime(v), 'Result']} /><Line type="monotone" dataKey="time" stroke="#2563eb" strokeWidth={4} dot={{r: 5, fill: '#2563eb'}} /></RechartsLine></ResponsiveContainer></div></div><div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center"><History className="w-4 h-4 mr-2" /> Time History</h4><div className="space-y-3">{times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(t => <div key={t.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100"><div><p className={`font-black text-lg ${t.isDQ ? 'text-red-600' : 'text-blue-600'}`}>{t.isDQ ? 'DQ' : formatTime(t.timeSeconds)}</p><div className="flex items-center space-x-2 mt-1"><Calendar className="w-3 h-3 text-slate-400" /><span className="text-xs text-slate-500 font-bold">{new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>{t.meetName && <><span className="w-1 h-1 bg-slate-300 rounded-full"></span><span className="text-xs text-slate-600 font-bold">{t.meetName}</span></>}</div></div><button onClick={() => setEditingTimeEntry(t)} className="text-slate-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-all"><Edit3 className="w-4 h-4" /></button><button onClick={() => handleDeleteTime(t.id)} className="text-slate-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-all"><Trash2 className="w-4 h-4" /></button></div>)}{times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id).length === 0 && <p className="text-center text-slate-400 text-sm py-8">No times recorded yet</p>}</div></div>{editingTimeEntry && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl"><div className="flex justify-between items-center mb-6"><h3 className="text-xl font-black text-slate-900 italic uppercase">Edit Time</h3><button onClick={() => setEditingTimeEntry(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button></div><form onSubmit={handleUpdateTime} className="space-y-4"><div className="flex items-center space-x-3 p-3 bg-red-50 border border-red-200 rounded-xl"><input name="isDQ" type="checkbox" id="editIsDQ" defaultChecked={editingTimeEntry.isDQ} className="w-5 h-5 rounded border-red-300 text-red-600 focus:ring-red-500" /><label htmlFor="editIsDQ" className="text-sm font-bold text-red-700 uppercase">Disqualified (DQ)</label></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Time (mm:ss.xx)</label><input name="time" type="text" defaultValue={editingTimeEntry.isDQ ? '' : formatTime(editingTimeEntry.timeSeconds)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Meet Date</label><input name="date" type="date" defaultValue={editingTimeEntry.date} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Meet Name (optional)</label><input name="meetName" type="text" defaultValue={editingTimeEntry.meetName || ''} placeholder="e.g. Regional Championships" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div className="flex space-x-3 pt-2"><button type="button" onClick={() => handleDeleteTime(editingTimeEntry.id)} className="bg-red-100 text-red-600 py-3 px-4 rounded-xl font-black uppercase text-xs hover:bg-red-200"><Trash2 className="w-4 h-4" /></button><button type="button" onClick={() => setEditingTimeEntry(null)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-xs">Cancel</button><button type="submit" className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-black uppercase text-xs">Save Changes</button></div></form></div></div>}{deletingTimeId && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center"><div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 className="w-8 h-8 text-red-600" /></div><h3 className="text-xl font-black text-slate-900 uppercase mb-2">Delete Time?</h3><p className="text-slate-500 text-sm mb-6">This action cannot be undone.</p><div className="flex space-x-3"><button onClick={() => setDeletingTimeId(null)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-xs">Cancel</button><button onClick={confirmDeleteTime} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-black uppercase text-xs">Delete</button></div></div></div>}</div> : null;
-      case 'manage-swimmer-events': return currentAthlete ? <div className="space-y-6"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="text-xl font-black text-slate-900 italic uppercase mb-2">Track Your Events</h3><p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6">Age Group: {currentAthlete.ageGroup}</p><div className="space-y-3">{events.filter(e => e.ageGroup === currentAthlete.ageGroup).map(e => <div key={e.id} onClick={() => handleToggleEventSelection(e.id)} className={`p-4 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${currentAthlete.selectedEventIds.includes(e.id) ? 'border-blue-600 bg-blue-50' : 'border-slate-100 bg-white'}`}><div><p className="font-bold text-sm text-slate-800">{e.name}</p></div>{currentAthlete.selectedEventIds.includes(e.id) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5 text-slate-300" />}</div>)}</div></div></div> : null;
+      case 'event-detail': return selectedEventId && currentAthlete ? <div className="space-y-6 pb-10"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-sky-400 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="glass-card p-6 rounded-2xl"><div className="flex justify-between items-start mb-8"><div><h3 className="font-display text-3xl font-black text-white uppercase">{events.find(e => e.id === selectedEventId)?.name}</h3><div className="flex items-center space-x-2 mt-1"><p className="text-sm font-bold text-slate-500 uppercase">{events.find(e => e.id === selectedEventId)?.stroke}</p></div></div><button onClick={() => setCurrentScreen('add-time')} className="bg-sky-500 hover:bg-sky-400 text-white p-3 rounded-xl shadow-lg shadow-sky-500/30 transition-all btn-press"><Plus className="w-6 h-6" /></button></div><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><RechartsLine data={times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id && !t.isDQ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(t => ({ date: new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), time: t.timeSeconds }))}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" /><XAxis dataKey="date" tick={{fontSize: 9, fill: '#64748b'}} axisLine={false} tickLine={false} /><YAxis hide domain={['auto', 'auto']} /><Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} formatter={(v: number) => [formatTime(v), 'Result']} /><Line type="monotone" dataKey="time" stroke="#0ea5e9" strokeWidth={4} dot={{r: 5, fill: '#0ea5e9'}} /></RechartsLine></ResponsiveContainer></div></div><div className="glass-card p-6 rounded-2xl"><h4 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center"><History className="w-4 h-4 mr-2" /> Time History</h4><div className="space-y-3">{times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(t => <div key={t.id} className="flex justify-between items-center p-4 bg-slate-900/60 rounded-xl border border-white/5"><div><p className={`font-display text-2xl font-black ${t.isDQ ? 'text-red-400' : 'text-sky-400'}`}>{t.isDQ ? 'DQ' : formatTime(t.timeSeconds)}</p><div className="flex items-center space-x-2 mt-1"><Calendar className="w-3 h-3 text-slate-500" /><span className="text-xs text-slate-500 font-bold">{new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>{t.meetName && <><span className="w-1 h-1 bg-slate-600 rounded-full"></span><span className="text-xs text-slate-400 font-bold">{t.meetName}</span></>}</div></div><button onClick={() => setEditingTimeEntry(t)} className="text-slate-500 hover:text-sky-400 p-2 rounded-lg hover:bg-sky-500/10 transition-all"><Edit3 className="w-4 h-4" /></button><button onClick={() => handleDeleteTime(t.id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-all"><Trash2 className="w-4 h-4" /></button></div>)}{times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id).length === 0 && <p className="text-center text-slate-500 text-sm py-8">No times recorded yet</p>}</div></div>{editingTimeEntry && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="glass-card rounded-2xl p-6 w-full max-w-md shadow-2xl"><div className="flex justify-between items-center mb-6"><h3 className="font-display text-xl font-bold text-white uppercase">Edit Time</h3><button onClick={() => setEditingTimeEntry(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button></div><form onSubmit={handleUpdateTime} className="space-y-4"><div className="flex items-center space-x-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl"><input name="isDQ" type="checkbox" id="editIsDQ" defaultChecked={editingTimeEntry.isDQ} className="w-5 h-5 rounded border-red-500/50 text-red-500 focus:ring-red-500 bg-slate-900" /><label htmlFor="editIsDQ" className="text-sm font-bold text-red-400 uppercase">Disqualified (DQ)</label></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Time (mm:ss.xx)</label><input name="time" type="text" defaultValue={editingTimeEntry.isDQ ? '' : formatTime(editingTimeEntry.timeSeconds)} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Date</label><input name="date" type="date" defaultValue={editingTimeEntry.date} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Name (optional)</label><input name="meetName" type="text" defaultValue={editingTimeEntry.meetName || ''} placeholder="e.g. Regional Championships" className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 font-bold text-white outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" /></div><div className="flex space-x-3 pt-2"><button type="button" onClick={() => handleDeleteTime(editingTimeEntry.id)} className="bg-red-500/10 text-red-400 py-3 px-4 rounded-xl font-bold uppercase text-xs hover:bg-red-500/20 transition-all"><Trash2 className="w-4 h-4" /></button><button type="button" onClick={() => setEditingTimeEntry(null)} className="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl font-bold uppercase text-xs hover:bg-slate-700">Cancel</button><button type="submit" className="flex-1 bg-sky-500 text-white py-3 rounded-xl font-bold uppercase text-xs hover:bg-sky-400">Save Changes</button></div></form></div></div>}{deletingTimeId && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center"><div className="bg-red-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 className="w-8 h-8 text-red-400" /></div><h3 className="font-display text-xl font-bold text-white uppercase mb-2">Delete Time?</h3><p className="text-slate-400 text-sm mb-6">This action cannot be undone.</p><div className="flex space-x-3"><button onClick={() => setDeletingTimeId(null)} className="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl font-bold uppercase text-xs hover:bg-slate-700">Cancel</button><button onClick={confirmDeleteTime} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold uppercase text-xs hover:bg-red-400">Delete</button></div></div></div>}</div> : null;
+      case 'manage-swimmer-events': return currentAthlete ? <div className="space-y-6"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-sky-400 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="glass-card p-6 rounded-2xl"><h3 className="font-display text-xl font-bold text-white uppercase mb-2">Track Your Events</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-6">Age Group: {currentAthlete.ageGroup}</p><div className="space-y-3">{events.filter(e => e.ageGroup === currentAthlete.ageGroup).map(e => <div key={e.id} onClick={() => handleToggleEventSelection(e.id)} className={`p-4 rounded-xl border flex items-center justify-between cursor-pointer transition-all btn-press ${currentAthlete.selectedEventIds.includes(e.id) ? 'border-sky-500/50 bg-sky-500/10' : 'border-white/5 bg-slate-900/60 hover:border-sky-500/30'}`}><div><p className="font-bold text-sm text-white">{e.name}</p></div>{currentAthlete.selectedEventIds.includes(e.id) ? <CheckSquare className="w-5 h-5 text-sky-400" /> : <Square className="w-5 h-5 text-slate-600" />}</div>)}</div></div></div> : null;
       case 'focus': return renderFocusScreen();
       case 'roster': return <div className="space-y-4">
         {/* Share Team Button */}
@@ -2251,17 +2314,17 @@ const App: React.FC = () => {
           <button 
             onClick={handleCreateShareLink} 
             disabled={isCreatingShare}
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center space-x-2 hover:from-purple-500 hover:to-blue-500 transition-all shadow-lg"
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white p-4 rounded-2xl font-bold uppercase text-xs flex items-center justify-center space-x-2 hover:from-purple-400 hover:to-pink-500 transition-all shadow-lg shadow-purple-500/30 btn-press"
             data-testid="share-team-btn"
           >
             <Share2 className="w-5 h-5" />
             <span>{isCreatingShare ? 'Creating Link...' : 'Share Team'}</span>
           </button>
         )}
-        {(currentUser?.role === Role.PARENT || currentUser?.role === Role.COACH || currentUser?.role === Role.ADMIN) && <button onClick={() => setCurrentScreen('add-athlete')} className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center space-x-2 hover:bg-blue-500 transition-all shadow-lg"><Plus className="w-5 h-5" /><span>Add Swimmer</span></button>}{visibleAthletes.length === 0 ? <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200"><Users className="w-12 h-12 text-slate-300 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-2 uppercase text-xs">No swimmers yet</p><p className="text-slate-400 text-sm">Click the button above to add your first swimmer</p></div> : visibleAthletes.map(a => <div key={a.id} onClick={() => { setSelectedAthleteId(a.id); setCurrentScreen('dashboard'); setActiveTab('dashboard'); }} className={`bg-white p-5 rounded-2xl border ${selectedAthleteId === a.id ? 'border-blue-600 shadow-blue-50' : 'border-slate-100'} shadow-sm flex justify-between items-center cursor-pointer hover:border-blue-200 transition-all group`}><div className="flex items-center space-x-4"><div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors"><UserIcon className="w-5 h-5 text-slate-400 group-hover:text-blue-600" /></div><div><p className="font-black text-slate-800 uppercase italic leading-none mb-1">{a.name}</p><p className="text-[10px] text-slate-400 font-bold uppercase">{a.ageGroup} • {a.gender}</p></div></div><ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" /></div>)}</div>;
+        {(currentUser?.role === Role.PARENT || currentUser?.role === Role.COACH || currentUser?.role === Role.ADMIN) && <button onClick={() => setCurrentScreen('add-athlete')} className="w-full bg-sky-500 hover:bg-sky-400 text-white p-4 rounded-2xl font-bold uppercase text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-sky-500/30 btn-press"><Plus className="w-5 h-5" /><span>Add Swimmer</span></button>}{visibleAthletes.length === 0 ? <div className="text-center py-16 glass-card rounded-2xl"><Users className="w-12 h-12 text-slate-600 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-2 uppercase text-xs">No swimmers yet</p><p className="text-slate-500 text-sm">Click the button above to add your first swimmer</p></div> : visibleAthletes.map(a => <div key={a.id} onClick={() => { setSelectedAthleteId(a.id); setCurrentScreen('dashboard'); setActiveTab('dashboard'); }} className={`glass-card p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:border-sky-500/30 transition-all group ${selectedAthleteId === a.id ? 'border-sky-500/50' : ''}`}><div className="flex items-center space-x-4"><div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/30"><span className="font-display text-lg font-bold text-white">{a.name.charAt(0)}</span></div><div><p className="font-display text-lg font-bold text-white uppercase leading-none mb-1">{a.name}</p><p className="text-[10px] text-slate-500 font-bold uppercase">{a.ageGroup} • {a.gender === 'M' ? 'Male' : 'Female'}</p></div></div><ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-sky-400 transition-colors" /></div>)}</div>;
       case 'admin': return renderAdmin();
-      case 'add-time': return selectedEventId && currentAthlete ? <div className="max-w-md mx-auto space-y-6"><button onClick={() => setCurrentScreen('event-detail')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6"><div className="border-b border-slate-100 pb-6 mb-2"><div className="flex items-center space-x-3 mb-2"><div className="bg-blue-600 p-2 rounded-lg"><Clock className="w-5 h-5 text-white" /></div><h3 className="text-2xl font-black text-slate-900 italic uppercase">Add Result</h3></div><div className="flex items-center space-x-2 mt-1"><span className="font-black text-slate-800 text-sm uppercase">{events.find(e => e.id === selectedEventId)?.name}</span><span className="w-1 h-1 bg-slate-200 rounded-full"></span><span className="text-xs font-bold text-blue-600 uppercase tracking-widest">{currentAthlete.name}</span></div></div><form onSubmit={handleAddTime} className="space-y-6"><div className="flex items-center space-x-3 p-4 bg-red-50 border border-red-200 rounded-xl"><input name="isDQ" type="checkbox" id="isDQ" className="w-5 h-5 rounded border-red-300 text-red-600 focus:ring-red-500" /><label htmlFor="isDQ" className="text-sm font-bold text-red-700 uppercase">Disqualified (DQ)</label></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Time (mm:ss.xx)</label><input name="time" type="text" placeholder="1:05.42" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Meet Date</label><input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Meet Name (optional)</label><input name="meetName" type="text" placeholder="e.g. Regional Championships" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl">Save Record</button></form></div></div> : null;
-      case 'add-athlete': return <div className="max-w-md mx-auto"><button onClick={() => setCurrentScreen('roster')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-slate-800 mb-6"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6"><h3 className="text-2xl font-black text-slate-900 italic uppercase">New Swimmer</h3><form onSubmit={handleAddAthlete} className="space-y-6"><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Name</label><input name="name" type="text" required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Birth Date</label><input name="dob" type="date" required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600" /></div><div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Gender</label><select name="gender" required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-600"><option value="M">Male</option><option value="F">Female</option></select></div><button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl">Add Athlete</button></form></div></div>;
+      case 'add-time': return selectedEventId && currentAthlete ? <div className="max-w-md mx-auto space-y-6"><button onClick={() => setCurrentScreen('event-detail')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-sky-400 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="glass-card p-8 rounded-2xl space-y-6"><div className="border-b border-white/5 pb-6 mb-2"><div className="flex items-center space-x-3 mb-2"><div className="bg-gradient-to-br from-sky-500 to-blue-600 p-3 rounded-xl shadow-lg shadow-sky-500/30"><Clock className="w-5 h-5 text-white" /></div><h3 className="font-display text-2xl font-bold text-white uppercase">Add Result</h3></div><div className="flex items-center space-x-2 mt-1"><span className="font-display font-bold text-white text-sm uppercase">{events.find(e => e.id === selectedEventId)?.name}</span><span className="w-1 h-1 bg-slate-600 rounded-full"></span><span className="text-xs font-bold text-sky-400 uppercase tracking-widest">{currentAthlete.name}</span></div></div><form onSubmit={handleAddTime} className="space-y-6"><div className="flex items-center space-x-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl"><input name="isDQ" type="checkbox" id="isDQ" className="w-5 h-5 rounded border-red-500/50 text-red-500 focus:ring-red-500 bg-slate-900" /><label htmlFor="isDQ" className="text-sm font-bold text-red-400 uppercase">Disqualified (DQ)</label></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Time (mm:ss.xx)</label><input name="time" type="text" placeholder="1:05.42" className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Date</label><input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Name (optional)</label><input name="meetName" type="text" placeholder="e.g. Regional Championships" className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" /></div><button type="submit" className="w-full bg-gradient-to-r from-sky-500 to-blue-600 text-white py-4 rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 transition-all btn-press">Save Record</button></form></div></div> : null;
+      case 'add-athlete': return <div className="max-w-md mx-auto"><button onClick={() => setCurrentScreen('roster')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-sky-400 mb-6 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="glass-card p-8 rounded-2xl space-y-6"><h3 className="font-display text-2xl font-bold text-white uppercase">New Swimmer</h3><form onSubmit={handleAddAthlete} className="space-y-6"><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Name</label><input name="name" type="text" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Birth Date</label><input name="dob" type="date" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Gender</label><select name="gender" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all"><option value="M">Male</option><option value="F">Female</option></select></div><button type="submit" className="w-full bg-gradient-to-r from-sky-500 to-blue-600 text-white py-4 rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 transition-all btn-press">Add Athlete</button></form></div></div>;
       case 'scan-times': return renderScanTimesScreen();
       case 'shared-view': return renderSharedView();
       default: return renderDashboard();
@@ -2269,26 +2332,47 @@ const App: React.FC = () => {
   };
 
   if (currentScreen === 'login') return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-slate-100">
+    <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center p-6">
       <div className="w-full max-w-md text-center">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl"><Trophy className="text-white w-10 h-10" /></div>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter">SwimQual<span className="text-blue-500">.app</span></h1>
-        </div>
-        <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl">
-          <form onSubmit={handleLoginSubmit} className="space-y-5">
-            <input name="email" type="email" placeholder="alex@team.com" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
-            <input name="password" type="password" placeholder="••••••••" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
-            {loginError && <p className="text-red-500 text-xs font-bold">{loginError}</p>}
-            <button type="submit" className="w-full py-4 rounded-xl font-black uppercase bg-blue-600 text-white shadow-xl hover:bg-blue-500 transition-all">Log In</button>
-          </form>
-          <div className="mt-6 pt-6 border-t border-slate-700/50">
-            <p className="text-sm text-slate-400">Don't have an account? <button onClick={() => { setCurrentScreen('register'); setLoginError(null); }} className="text-blue-500 font-bold hover:text-blue-400">Register</button></p>
+          <div className="w-20 h-20 bg-gradient-to-br from-sky-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-sky-500/30">
+            <Trophy className="text-white w-10 h-10" />
           </div>
-          <div className="mt-6 pt-6 border-t border-slate-700/50">
-            <p className="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest text-center">Demo Accounts</p>
+          <h1 className="font-display text-4xl font-black uppercase tracking-tight text-white">
+            SwimQual
+          </h1>
+          <p className="text-slate-500 text-sm mt-2">Track. Qualify. Dominate.</p>
+        </div>
+        <div className="glass-card rounded-3xl p-8">
+          <form onSubmit={handleLoginSubmit} className="space-y-5">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <input name="email" type="email" placeholder="alex@team.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <input name="password" type="password" placeholder="••••••••" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            </div>
+            {loginError && <p className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg">{loginError}</p>}
+            <button type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 transition-all btn-press">
+              Log In
+            </button>
+          </form>
+          <div className="mt-6 pt-6 border-t border-white/5">
+            <p className="text-sm text-slate-400">Don't have an account? <button onClick={() => { setCurrentScreen('register'); setLoginError(null); }} className="text-sky-400 font-bold hover:text-sky-300">Register</button></p>
+          </div>
+          <div className="mt-6 pt-6 border-t border-white/5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest text-center">Demo Accounts</p>
             <div className="grid grid-cols-2 gap-2">
-              {['alex@team.com', 'maria@parent.com', 'sarah@team.com', 'admin@swim.com'].map(e => <button key={e} onClick={() => quickLogin(e)} className="bg-slate-900 hover:bg-blue-900/40 border border-slate-700 rounded-lg p-2 text-[9px] font-black uppercase text-slate-500 truncate transition-all">{e.split('@')[0]}</button>)}
+              {['alex@team.com', 'maria@parent.com', 'sarah@team.com', 'admin@swim.com'].map(e => (
+                <button 
+                  key={e} 
+                  onClick={() => quickLogin(e)} 
+                  className="bg-slate-900/60 hover:bg-sky-500/20 border border-white/5 hover:border-sky-500/30 rounded-xl p-3 text-[10px] font-bold uppercase text-slate-400 hover:text-sky-400 truncate transition-all btn-press"
+                >
+                  {e.split('@')[0]}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -2297,28 +2381,33 @@ const App: React.FC = () => {
   );
 
   if (currentScreen === 'register') return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-slate-100">
+    <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center p-6">
       <div className="w-full max-w-md text-center">
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl"><UserPlus className="text-white w-10 h-10" /></div>
-        <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-10">Create Account</h1>
-        <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl">
+        <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-emerald-500/30">
+          <UserPlus className="text-white w-10 h-10" />
+        </div>
+        <h1 className="font-display text-3xl font-black uppercase tracking-tight text-white mb-2">Create Account</h1>
+        <p className="text-slate-500 text-sm mb-8">Join the SwimQual community</p>
+        <div className="glass-card rounded-3xl p-8">
           <form onSubmit={handleRegisterSubmit} className="space-y-5">
-            <input name="name" type="text" placeholder="Your Name" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
-            <input name="email" type="email" placeholder="email@example.com" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
-            <input name="password" type="password" placeholder="Password" required minLength={6} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none" />
+            <input name="name" type="text" placeholder="Your Name" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            <input name="email" type="email" placeholder="email@example.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            <input name="password" type="password" placeholder="Password" required minLength={6} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-left">I am a...</label>
-              <select name="role" required className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white font-bold outline-none">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest text-left">I am a...</label>
+              <select name="role" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all">
                 <option value={Role.SWIMMER}>Swimmer</option>
                 <option value={Role.PARENT}>Parent</option>
                 <option value={Role.COACH}>Coach</option>
               </select>
             </div>
-            {registerError && <p className="text-red-500 text-xs font-bold">{registerError}</p>}
-            <button type="submit" className="w-full py-4 rounded-xl font-black uppercase bg-blue-600 text-white shadow-xl hover:bg-blue-500 transition-all">Create Account</button>
+            {registerError && <p className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg">{registerError}</p>}
+            <button type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/40 transition-all btn-press">
+              Create Account
+            </button>
           </form>
-          <div className="mt-6 pt-6 border-t border-slate-700/50">
-            <p className="text-sm text-slate-400">Already have an account? <button onClick={() => { setCurrentScreen('login'); setRegisterError(null); }} className="text-blue-500 font-bold hover:text-blue-400">Log In</button></p>
+          <div className="mt-6 pt-6 border-t border-white/5">
+            <p className="text-sm text-slate-400">Already have an account? <button onClick={() => { setCurrentScreen('login'); setRegisterError(null); }} className="text-sky-400 font-bold hover:text-sky-300">Log In</button></p>
           </div>
         </div>
       </div>

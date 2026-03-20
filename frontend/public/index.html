@@ -5,18 +5,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SwimQual.app</title>
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              navy: {
+                900: '#0a0f1a',
+                800: '#111827',
+                700: '#1e293b'
+              }
+            },
+            fontFamily: {
+              'display': ['Barlow Condensed', 'sans-serif'],
+              'body': ['Inter', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-      body { font-family: 'Inter', sans-serif; }
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background: #0a0f1a;
+      }
+      .font-display { font-family: 'Barlow Condensed', sans-serif; }
+      
+      /* Custom scrollbar */
       .custom-scrollbar::-webkit-scrollbar { width: 4px; }
       .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      /* Glassmorphism */
+      .glass-card {
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      
+      /* Glow effects */
+      .glow-blue {
+        box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+      }
+      
+      /* Gradient overlays */
+      .ocean-gradient {
+        background: linear-gradient(180deg, rgba(14, 165, 233, 0.1) 0%, rgba(10, 15, 26, 0) 100%);
+      }
+      
+      /* Button press effect */
+      .btn-press:active {
+        transform: scale(0.95);
+      }
+      
+      /* Number styling */
+      .time-display {
+        font-family: 'Barlow Condensed', sans-serif;
+        letter-spacing: -0.02em;
+      }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-navy-900 text-white antialiased">
     <div id="root"></div>
 </body>
 </html>

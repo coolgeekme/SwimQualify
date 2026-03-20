@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Event, TimeEntry, QualifyingStandard } from '../types';
 import { formatTime } from '../utils/time';
-import { getAchievementLevel, getLevelColor, getLevelDescription, getNextLevel } from '../utils/motivationalTimes';
+import { getAchievementLevel, getLevelColor, getNextLevel } from '../utils/motivationalTimes';
 import { Trophy, TrendingUp, ChevronRight, Star, CheckCircle2, Zap } from 'lucide-react';
 
 interface Props {
@@ -17,7 +16,6 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
   const regionalCut = standards.find(s => s.region === 'Regional');
   const stateCut = standards.find(s => s.region === 'State');
 
-  // Qualification checks - swimmer qualifies if their best time is <= cut time
   const qualifiedRegional = bestTime && regionalCut && bestTime.timeSeconds <= regionalCut.cutTimeSeconds;
   const qualifiedState = bestTime && stateCut && bestTime.timeSeconds <= stateCut.cutTimeSeconds;
 
@@ -29,85 +27,113 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
   const regionalGap = regionalCut ? getGap(regionalCut.cutTimeSeconds) : null;
   const stateGap = stateCut ? getGap(stateCut.cutTimeSeconds) : null;
 
-  // Get USA Swimming Motivational Time Standard level
   const achievementLevel = bestTime 
     ? getAchievementLevel(bestTime.timeSeconds, event.name, event.ageGroup, athleteGender, event.course)
     : null;
-  const levelColors = getLevelColor(achievementLevel);
-  const levelDescription = getLevelDescription(achievementLevel);
+  
   const nextLevelInfo = bestTime 
     ? getNextLevel(bestTime.timeSeconds, event.name, event.ageGroup, athleteGender, event.course)
     : null;
 
+  // Level colors for dark theme
+  const getLevelStyles = (level: string | null) => {
+    switch (level) {
+      case 'AAAA': return { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' };
+      case 'AAA': return { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' };
+      case 'AA': return { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' };
+      case 'A': return { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' };
+      case 'BB': return { bg: 'bg-teal-500/20', text: 'text-teal-400', border: 'border-teal-500/30' };
+      case 'B': return { bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/30' };
+      default: return { bg: 'bg-slate-800/50', text: 'text-slate-500', border: 'border-slate-700/30' };
+    }
+  };
+
+  const levelStyles = getLevelStyles(achievementLevel);
+
   return (
     <div 
       onClick={onClick}
-      className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-blue-200 transition-all cursor-pointer active:scale-[0.98]"
+      className="glass-card rounded-2xl p-4 hover:border-sky-500/30 transition-all cursor-pointer active:scale-[0.98] group"
       data-testid={`event-card-${event.id}`}
     >
-      <div className="flex justify-between items-start mb-3">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="font-bold text-slate-800 text-lg">{event.name}</h3>
-          <div className="flex items-center space-x-2">
-            <p className="text-xs text-slate-500 uppercase font-semibold tracking-wider">{event.stroke}</p>
-            <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-            <p className="text-[10px] font-black text-blue-500 uppercase">{event.course}</p>
-          </div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
+            {event.stroke}
+          </p>
+          <h3 className="font-display text-xl font-bold text-white uppercase tracking-tight">
+            {event.name}
+          </h3>
         </div>
-        <div className="bg-blue-50 p-2 rounded-lg">
-          <TrendingUp className="w-5 h-5 text-blue-600" />
+        <div className="flex items-center space-x-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2 py-1 rounded">
+            {event.course}
+          </span>
+          <div className="w-8 h-8 rounded-lg bg-slate-800/60 flex items-center justify-center group-hover:bg-sky-500/20 transition-colors">
+            <TrendingUp className="w-4 h-4 text-slate-400 group-hover:text-sky-400" />
+          </div>
         </div>
       </div>
 
-      {/* Best Time Display with Motivational Standard */}
-      <div className="bg-slate-50 rounded-lg p-3 mb-3">
-        <div className="flex justify-between items-start">
+      {/* Time Display */}
+      <div className="bg-slate-900/60 rounded-xl p-4 mb-4">
+        <div className="flex justify-between items-center">
           <div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Best Time</p>
-            <p className="text-2xl font-black text-slate-900" data-testid={`best-time-${event.id}`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
+              Best Time
+            </p>
+            <p className="font-display text-4xl font-black text-white time-display" data-testid={`best-time-${event.id}`}>
               {bestTime ? formatTime(bestTime.timeSeconds) : '--.--'}
             </p>
           </div>
+          
           {/* Motivational Standard Badge */}
           {achievementLevel && (
             <div 
-              className={`${levelColors.bg} ${levelColors.border} border px-3 py-1.5 rounded-lg text-center`}
+              className={`${levelStyles.bg} ${levelStyles.border} border px-4 py-2 rounded-xl text-center`}
               data-testid={`motivational-level-${event.id}`}
-              title={levelDescription}
             >
-              <p className={`text-lg font-black ${levelColors.text}`}>{achievementLevel}</p>
-              <p className="text-[8px] font-bold text-slate-500 uppercase">USA Time</p>
+              <p className={`font-display text-2xl font-black ${levelStyles.text}`}>
+                {achievementLevel}
+              </p>
+              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">
+                USA Time
+              </p>
             </div>
           )}
         </div>
-        {/* Next motivational level to achieve */}
+        
+        {/* Next Level Target */}
         {nextLevelInfo && bestTime && (
-          <div className="mt-2 pt-2 border-t border-slate-200 flex items-center space-x-1.5">
-            <Zap className="w-3 h-3 text-amber-500" />
-            <p className="text-[10px] text-slate-500">
-              <span className="font-bold text-slate-700">{formatTime(nextLevelInfo.timeNeeded)}</span> for <span className="font-black text-amber-600">{nextLevelInfo.level}</span>
+          <div className="mt-3 pt-3 border-t border-white/5 flex items-center space-x-2">
+            <Zap className="w-3 h-3 text-amber-400" />
+            <p className="text-xs text-slate-400">
+              <span className="font-display font-bold text-white">{formatTime(nextLevelInfo.timeNeeded)}</span>
+              {' '}for{' '}
+              <span className="font-display font-bold text-amber-400">{nextLevelInfo.level}</span>
             </p>
           </div>
         )}
       </div>
 
-      {/* Qualification Status Badges */}
+      {/* Qualification Status */}
       {bestTime && (regionalCut || stateCut) && (
-        <div className="flex flex-wrap gap-2 mb-3" data-testid={`qualification-status-${event.id}`}>
+        <div className="flex flex-wrap gap-2 mb-4">
           {qualifiedState ? (
-            <div className="flex items-center space-x-1 bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+            <div className="flex items-center space-x-1.5 bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-full">
               <Trophy className="w-3 h-3" />
-              <span className="text-[10px] font-black uppercase">State Qualified!</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">State Qualified!</span>
             </div>
           ) : qualifiedRegional ? (
-            <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-1 rounded-full">
+            <div className="flex items-center space-x-1.5 bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full">
               <CheckCircle2 className="w-3 h-3" />
-              <span className="text-[10px] font-black uppercase">Regional Qualified!</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Regional Qualified!</span>
             </div>
           ) : (
-            <div className="flex items-center space-x-1 bg-blue-50 text-blue-600 px-2 py-1 rounded-full">
+            <div className="flex items-center space-x-1.5 bg-sky-500/10 text-sky-400 px-3 py-1.5 rounded-full">
               <Star className="w-3 h-3" />
-              <span className="text-[10px] font-black uppercase">
+              <span className="text-[10px] font-bold uppercase tracking-wider">
                 {regionalGap !== null ? `${regionalGap.toFixed(2)}s to Regional` : 'No cuts set'}
               </span>
             </div>
@@ -115,22 +141,22 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
         </div>
       )}
 
-      {/* Cut Times with Qualification Indicators */}
-      <div className="space-y-2 pt-3 border-t border-slate-100">
+      {/* Cut Times */}
+      <div className="space-y-2 pt-3 border-t border-white/5">
         {regionalCut && (
           <div className="flex justify-between items-center text-xs">
             <div className="flex items-center space-x-2">
-              {qualifiedRegional && <CheckCircle2 className="w-3 h-3 text-green-600" />}
-              <span className={`font-medium ${qualifiedRegional ? 'text-green-600' : 'text-slate-500'}`}>
+              {qualifiedRegional && <CheckCircle2 className="w-3 h-3 text-green-400" />}
+              <span className={`font-medium ${qualifiedRegional ? 'text-green-400' : 'text-slate-500'}`}>
                 Regional Cut:
               </span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className={`font-bold ${qualifiedRegional ? 'text-green-600' : 'text-slate-800'}`}>
+              <span className={`font-display font-bold ${qualifiedRegional ? 'text-green-400' : 'text-white'}`}>
                 {formatTime(regionalCut.cutTimeSeconds)}
               </span>
               {bestTime && !qualifiedRegional && regionalGap !== null && (
-                <span className="text-[10px] text-blue-500 font-bold">+{regionalGap.toFixed(2)}s</span>
+                <span className="text-[10px] text-sky-400 font-bold">+{regionalGap.toFixed(2)}s</span>
               )}
             </div>
           </div>
@@ -138,25 +164,27 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
         {stateCut && (
           <div className="flex justify-between items-center text-xs">
             <div className="flex items-center space-x-2">
-              {qualifiedState && <Trophy className="w-3 h-3 text-amber-600" />}
-              <span className={`font-medium ${qualifiedState ? 'text-amber-600' : 'text-slate-500'}`}>
+              {qualifiedState && <Trophy className="w-3 h-3 text-amber-400" />}
+              <span className={`font-medium ${qualifiedState ? 'text-amber-400' : 'text-slate-500'}`}>
                 State Cut:
               </span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className={`font-bold ${qualifiedState ? 'text-amber-600' : 'text-slate-800'}`}>
+              <span className={`font-display font-bold ${qualifiedState ? 'text-amber-400' : 'text-white'}`}>
                 {formatTime(stateCut.cutTimeSeconds)}
               </span>
               {bestTime && !qualifiedState && stateGap !== null && (
-                <span className="text-[10px] text-slate-400 font-bold">+{stateGap.toFixed(2)}s</span>
+                <span className="text-[10px] text-slate-500 font-bold">+{stateGap.toFixed(2)}s</span>
               )}
             </div>
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex items-center text-blue-600 text-xs font-bold justify-end group">
-        Details <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+      {/* Details Link */}
+      <div className="mt-4 flex items-center text-sky-400 text-xs font-bold justify-end group-hover:text-sky-300 transition-colors">
+        <span className="uppercase tracking-wider">Details</span>
+        <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
       </div>
     </div>
   );
