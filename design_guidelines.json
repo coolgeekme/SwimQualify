@@ -1,0 +1,128 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "The Anti-AI Designer",
+    "mission": "Create a top 1% professional swim tracking app that feels aquatic, elite, and fast. No generic dashboards.",
+    "principles": [
+      "Fusion: Mix 'Data Terminal' precision with 'Deep Ocean' atmosphere.",
+      "Emotion: Every screen should feel like the quiet focus before a race.",
+      "Content: Data is the hero. Numbers are art.",
+      "Zoom In: Focus on the swimmer's lane. Intimacy with data.",
+      "Negative Space: Let the dark water breathe."
+    ]
+  },
+  "theme": {
+    "mode": "dark",
+    "archetype": "The Performance Pro (Aquatic Variant)",
+    "vibe": "Elite, Submerged, Precision, Kinetic"
+  },
+  "colors": {
+    "background": {
+      "main": "#0a0f1a",
+      "secondary": "#111827",
+      "tertiary": "#1e293b"
+    },
+    "text": {
+      "primary": "#f8fafc",
+      "secondary": "#94a3b8",
+      "muted": "#64748b",
+      "accent": "#38bdf8"
+    },
+    "primary": {
+      "main": "#0ea5e9",
+      "hover": "#0284c7",
+      "glow": "0 0 20px rgba(14, 165, 233, 0.5)"
+    },
+    "accent": {
+      "cyan": "#06b6d4",
+      "teal": "#14b8a6",
+      "gold": "#eab308"
+    },
+    "status": {
+      "success": "#22c55e",
+      "error": "#ef4444",
+      "warning": "#f59e0b",
+      "info": "#3b82f6"
+    },
+    "gradients": {
+      "ocean": "linear-gradient(180deg, rgba(14, 165, 233, 0.1) 0%, rgba(10, 15, 26, 0) 100%)",
+      "glass": "linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.6) 100%)",
+      "gold": "linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%)"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "headings": "Barlow Condensed, sans-serif",
+      "body": "Inter, sans-serif",
+      "numbers": "Barlow Condensed, sans-serif"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-black uppercase tracking-tight",
+      "h2": "text-3xl font-bold uppercase tracking-tight",
+      "h3": "text-xl font-bold uppercase tracking-wide",
+      "body": "text-base font-normal leading-relaxed",
+      "caption": "text-xs font-medium uppercase tracking-widest text-slate-500",
+      "data_huge": "text-6xl md:text-7xl font-black tracking-tighter"
+    },
+    "import_url": "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap"
+  },
+  "spacing": {
+    "container_padding": "p-6 md:p-8 lg:p-12",
+    "section_gap": "gap-8 md:gap-12",
+    "element_gap": "gap-4"
+  },
+  "ui_elements": {
+    "cards": {
+      "style": "glass",
+      "classes": "bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl",
+      "hover": "hover:border-blue-500/30 hover:bg-slate-800/80 transition-all duration-300"
+    },
+    "buttons": {
+      "primary": "bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-wider py-3 px-6 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-all transform hover:-translate-y-0.5",
+      "secondary": "bg-slate-800 hover:bg-slate-700 text-white font-bold uppercase tracking-wider py-3 px-6 rounded-lg border border-slate-700 transition-all"
+    },
+    "inputs": {
+      "style": "bg-slate-950/50 border border-slate-700 focus:border-blue-500 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+    },
+    "borders": {
+      "subtle": "border border-white/5",
+      "highlight": "border border-blue-500/20"
+    }
+  },
+  "layout_strategies": {
+    "dashboard": "Bento Grid: Mix of 1x1 (stats), 2x1 (graphs), and 2x2 (hero) blocks. Use asymmetry.",
+    "list": "Vertical stack with generous padding. Alternating backgrounds for rows (zebra striping) but subtle.",
+    "mobile": "Single column stack. Bottom navigation bar. Sticky headers."
+  },
+  "images": {
+    "hero_swimmer": "https://images.pexels.com/photos/6011889/pexels-photo-6011889.jpeg",
+    "action_butterfly": "https://images.pexels.com/photos/2062705/pexels-photo-2062705.jpeg",
+    "stopwatch_vintage": "https://images.pexels.com/photos/5563439/pexels-photo-5563439.jpeg",
+    "medals_hand": "https://images.pexels.com/photos/6827124/pexels-photo-6827124.jpeg",
+    "pool_abstract": "https://images.unsplash.com/photo-1581084121296-8b65c4f80452?crop=entropy&cs=srgb&fm=jpg&q=85"
+  },
+  "components_map": {
+    "DashboardCard": "frontend/src/components/DashboardCard.tsx",
+    "Layout": "frontend/src/components/Layout.tsx",
+    "Navigation": "Create a new bottom nav component for mobile.",
+    "Chart": "Recharts with custom tooltips (dark bg, white text)."
+  },
+  "universal_guidelines": [
+    "Use 'Barlow Condensed' for ALL numbers and headings. This is non-negotiable for the sports look.",
+    "Avoid pure black (#000000). Use #0a0f1a or #020617 for deep backgrounds.",
+    "Glassmorphism must be high-quality: use backdrop-blur-md or xl, with a very subtle white border (border-white/5 or border-white/10).",
+    "Text hierarchy: Label = small uppercase slate-500. Value = Huge white/blue.",
+    "Interactive elements must have a 'press' state (scale-95).",
+    "Charts: Remove grid lines or make them very subtle (stroke-slate-800). Lines should be thick (stroke-width={3}).",
+    "Do NOT use standard HTML date pickers if possible. Style them to match the dark theme.",
+    "For the 'Anti-AI' look: Add noise texture to the background if possible, or use a very subtle gradient overlay."
+  ],
+  "instructions_to_main_agent": [
+    "1. UPDATE INDEX.HTML: Add the Google Fonts link for Barlow Condensed immediately.",
+    "2. TAILWIND CONFIG: Since there is no config file, use arbitrary values or add a script to index.html to extend the theme colors: colors: { navy: '#0a0f1a', slate: { 850: '#1e293b' } }.",
+    "3. UPDATE LAYOUT: Refactor 'frontend/src/components/Layout.tsx' to use the new dark theme background and sidebar/bottom nav.",
+    "4. REFINE DASHBOARD: Update 'frontend/src/App.tsx' dashboard section to use the Bento grid layout with the new cards.",
+    "5. RESULTS/TIMES: Use the 'stopwatch_vintage' image as a subtle background or header for the results section.",
+    "6. PROFILE: Use the 'medals_hand' image for the achievements/standards section."
+  ]
+}
