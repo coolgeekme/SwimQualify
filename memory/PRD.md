@@ -33,6 +33,14 @@ SwimQual.app - A swim time tracking application with MongoDB backend, featuring:
 - [x] **USA Swimming Motivational Time Standards (Mar 15, 2026)** - Shows B, BB, A, AA, AAA, AAAA levels on event cards
 
 ## Recent Changes
+- Mar 20, 2026: **Major UI Redesign - Dark Theme**
+  - New dark navy background (#0a0f1a) throughout app
+  - Glass-morphism card effects (blur backdrop, subtle borders)
+  - Gradient buttons (sky-500 to blue-600)
+  - Updated fonts: Barlow Condensed (display), Inter (body)
+  - New bottom navigation with active state highlighting
+  - Hero card with pool image on dashboard
+  - Updated all screens: Login, Register, Dashboard, Focus, Team, Event Detail
 - Mar 15, 2026: Integrated USA Swimming Motivational Time Standards display on dashboard
   - Added `/app/frontend/src/utils/motivationalTimes.ts` with **OFFICIAL 2024-2028** SCY standards for 10U, 11-12, 13-14 (boys & girls)
   - Source: https://swimgoals.app/guides/motivational-times (USA Swimming official data)
