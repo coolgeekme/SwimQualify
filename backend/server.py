@@ -171,13 +171,13 @@ async def login(req: LoginRequest):
 
 @app.get("/api/auth/users")
 async def get_users():
-    users = list(db.users.find({}))
+    users = list(db.users.find({}).limit(1000))
     return [{"id": str(u["id"]), "name": u["name"], "email": u["email"], "role": u["role"], "teamId": u.get("teamId", "team1")} for u in users]
 
 # Events Endpoints
 @app.get("/api/events")
 async def get_events():
-    events = list(db.events.find({}))
+    events = list(db.events.find({}).limit(500))
     return [strip_mongo_id(e) for e in events]
 
 @app.post("/api/events")
@@ -233,7 +233,7 @@ async def delete_athlete(athlete_id: str):
 # Time Entries Endpoints
 @app.get("/api/times")
 async def get_times():
-    times = list(db.timeEntries.find({}))
+    times = list(db.timeEntries.find({}).limit(2000))
     return [strip_mongo_id(t) for t in times]
 
 @app.post("/api/times")
@@ -264,7 +264,7 @@ async def delete_time(time_id: str):
 # Qualifying Standards Endpoints
 @app.get("/api/standards")
 async def get_standards():
-    standards = list(db.qualifyingStandards.find({}))
+    standards = list(db.qualifyingStandards.find({}).limit(1000))
     return [strip_mongo_id(s) for s in standards]
 
 @app.post("/api/standards")
@@ -314,7 +314,7 @@ async def delete_standard(standard_id: str):
 # Seed Endpoint
 @app.post("/api/seed")
 async def seed_data():
-    existing_events = list(db.events.find({}))
+    existing_events = list(db.events.find({}).limit(1))
     if len(existing_events) > 0:
         return {"message": "Data already seeded", "seeded": False}
     
@@ -969,15 +969,15 @@ async def get_shared_team(share_code: str):
     
     # Strategy 3: By userId (for swimmer accounts)
     if len(athletes) == 0 and created_by:
-        athletes = list(db.athletes.find({"userId": created_by}, {"_id": 0}))
+        athletes = list(db.athletes.find({"userId": created_by}, {"_id": 0}).limit(100))
     
     # Strategy 4: Get all athletes (fallback for backwards compatibility)
     if len(athletes) == 0:
-        athletes = list(db.athletes.find({}, {"_id": 0}))
+        athletes = list(db.athletes.find({}, {"_id": 0}).limit(100))
     
     # Get ALL times from database - don't filter by athleteId here
     # Let the frontend filter since there might be ID format mismatches
-    all_times = list(db.times.find({}, {"_id": 0}))
+    all_times = list(db.times.find({}, {"_id": 0}).limit(5000))
     
     # Get athlete IDs
     athlete_ids = [a["id"] for a in athletes]
@@ -994,10 +994,10 @@ async def get_shared_team(share_code: str):
         print(f"  Sample athleteIds in times: {sample_athlete_ids}")
     
     # Get events
-    events = list(db.events.find({}, {"_id": 0}))
+    events = list(db.events.find({}, {"_id": 0}).limit(500))
     
     # Get standards
-    standards = list(db.standards.find({}, {"_id": 0}))
+    standards = list(db.standards.find({}, {"_id": 0}).limit(1000))
     
     return {
         "shareName": share.get("shareName", "Shared Team"),
