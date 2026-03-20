@@ -33,6 +33,17 @@ SwimQual.app - A swim time tracking application with MongoDB backend, featuring:
 - [x] **USA Swimming Motivational Time Standards (Mar 15, 2026)** - Shows B, BB, A, AA, AAA, AAAA levels on event cards
 
 ## Recent Changes
+- Mar 20, 2026: **Micro-Animations & Splash Screen Enhancement**
+  - Added animated splash screen with floating logo, pulsing glow, and loading dots
+  - Staggered entrance animations for event cards and UI elements
+  - Floating animation on profile avatar and header logo
+  - Badge shine effect on USA Time badges
+  - Icon bounce on hover for navigation and action buttons
+  - Glow pulse effect on active navigation item
+  - Ripple effect on primary buttons
+  - Water wave animation on hero card
+  - Page transition animations
+  - Enhanced hover states with lift and glow effects
 - Mar 20, 2026: **Major UI Redesign - Dark Theme**
   - New dark navy background (#0a0f1a) throughout app
   - Glass-morphism card effects (blur backdrop, subtle borders)

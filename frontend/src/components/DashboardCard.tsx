@@ -53,7 +53,7 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
   return (
     <div 
       onClick={onClick}
-      className="glass-card rounded-2xl p-4 hover:border-sky-500/30 transition-all cursor-pointer active:scale-[0.98] group"
+      className="glass-card rounded-2xl p-4 cursor-pointer group animate-slide-up"
       data-testid={`event-card-${event.id}`}
     >
       {/* Header */}
@@ -91,7 +91,7 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
           {/* Motivational Standard Badge */}
           {achievementLevel && (
             <div 
-              className={`${levelStyles.bg} ${levelStyles.border} border px-4 py-2 rounded-xl text-center`}
+              className={`${levelStyles.bg} ${levelStyles.border} border px-4 py-2 rounded-xl text-center badge-shine`}
               data-testid={`motivational-level-${event.id}`}
             >
               <p className={`font-display text-2xl font-black ${levelStyles.text}`}>

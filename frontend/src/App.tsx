@@ -1699,7 +1699,7 @@ const App: React.FC = () => {
     return (
       <div className="space-y-6">
         {/* Hero Card with Season Status */}
-        <div className="glass-card rounded-2xl overflow-hidden relative">
+        <div className="glass-card rounded-2xl overflow-hidden relative animate-slide-up water-wave">
           <div className="absolute inset-0 bg-gradient-to-r from-sky-600/20 to-blue-900/40" />
           <div className="absolute top-0 right-0 w-40 h-40 opacity-20">
             <img src="https://images.pexels.com/photos/6011889/pexels-photo-6011889.jpeg?auto=compress&cs=tinysrgb&w=200" alt="" className="w-full h-full object-cover" />
@@ -1714,9 +1714,9 @@ const App: React.FC = () => {
         </div>
 
         {/* Athlete Profile Card */}
-        <div className="glass-card p-5 rounded-2xl flex items-center justify-between">
+        <div className="glass-card p-5 rounded-2xl flex items-center justify-between animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-display font-black text-2xl shadow-lg shadow-sky-500/30">
+            <div className="w-14 h-14 bg-gradient-to-br from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-display font-black text-2xl shadow-lg shadow-sky-500/30 float">
               {currentAthlete.name.charAt(0)}
             </div>
             <div>
@@ -1726,17 +1726,17 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <button onClick={() => setCurrentScreen('scan-times')} className="bg-emerald-500/10 text-emerald-400 p-3 rounded-xl hover:bg-emerald-500/20 transition-all btn-press" title="Scan Heat Sheet">
+            <button onClick={() => setCurrentScreen('scan-times')} className="bg-emerald-500/10 text-emerald-400 p-3 rounded-xl hover:bg-emerald-500/20 transition-all btn-press icon-bounce" title="Scan Heat Sheet">
               <Camera className="w-5 h-5" />
             </button>
-            <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-sky-500/10 text-sky-400 p-3 rounded-xl hover:bg-sky-500/20 transition-all btn-press" title="Manage Events">
+            <button onClick={() => setCurrentScreen('manage-swimmer-events')} className="bg-sky-500/10 text-sky-400 p-3 rounded-xl hover:bg-sky-500/20 transition-all btn-press icon-bounce" title="Manage Events">
               <Edit3 className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Section Title */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <h3 className="font-display text-xl font-bold text-white uppercase tracking-wide">Season Best</h3>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length} Events</span>
         </div>
@@ -1752,15 +1752,17 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sortedEvents.map(event => (
-              <DashboardCard 
-                key={event.id} 
-                event={event} 
-                bestTime={getBestTime(event.id, currentAthlete.id)} 
-                standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} 
-                athleteGender={currentAthlete.gender} 
-                onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} 
-              />
+            {sortedEvents.map((event, index) => (
+              <div key={event.id} style={{ animationDelay: `${index * 0.1}s` }} className="animate-slide-up opacity-0" 
+                   onAnimationEnd={(e) => (e.currentTarget.style.opacity = '1')}>
+                <DashboardCard 
+                  event={event} 
+                  bestTime={getBestTime(event.id, currentAthlete.id)} 
+                  standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} 
+                  athleteGender={currentAthlete.gender} 
+                  onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} 
+                />
+              </div>
             ))}
           </div>
         )}
@@ -2334,8 +2336,8 @@ const App: React.FC = () => {
   if (currentScreen === 'login') return (
     <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center p-6">
       <div className="w-full max-w-md text-center">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-sky-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-sky-500/30">
+        <div className="flex flex-col items-center mb-8 animate-slide-up">
+          <div className="w-20 h-20 bg-gradient-to-br from-sky-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-sky-500/30 float glow-pulse">
             <Trophy className="text-white w-10 h-10" />
           </div>
           <h1 className="font-display text-4xl font-black uppercase tracking-tight text-white">
@@ -2343,32 +2345,33 @@ const App: React.FC = () => {
           </h1>
           <p className="text-slate-500 text-sm mt-2">Track. Qualify. Dominate.</p>
         </div>
-        <div className="glass-card rounded-3xl p-8">
+        <div className="glass-card rounded-3xl p-8 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <form onSubmit={handleLoginSubmit} className="space-y-5">
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-              <input name="email" type="email" placeholder="alex@team.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+              <input name="email" type="email" placeholder="alex@team.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 focus:shadow-lg focus:shadow-sky-500/10 transition-all placeholder:text-slate-600" />
             </div>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-              <input name="password" type="password" placeholder="••••••••" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+              <input name="password" type="password" placeholder="••••••••" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 focus:shadow-lg focus:shadow-sky-500/10 transition-all placeholder:text-slate-600" />
             </div>
-            {loginError && <p className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg">{loginError}</p>}
-            <button type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 transition-all btn-press">
+            {loginError && <p className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg animate-scale-in">{loginError}</p>}
+            <button type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 hover:scale-[1.02] transition-all btn-press ripple">
               Log In
             </button>
           </form>
           <div className="mt-6 pt-6 border-t border-white/5">
-            <p className="text-sm text-slate-400">Don't have an account? <button onClick={() => { setCurrentScreen('register'); setLoginError(null); }} className="text-sky-400 font-bold hover:text-sky-300">Register</button></p>
+            <p className="text-sm text-slate-400">Don't have an account? <button onClick={() => { setCurrentScreen('register'); setLoginError(null); }} className="text-sky-400 font-bold hover:text-sky-300 transition-colors">Register</button></p>
           </div>
           <div className="mt-6 pt-6 border-t border-white/5">
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest text-center">Demo Accounts</p>
             <div className="grid grid-cols-2 gap-2">
-              {['alex@team.com', 'maria@parent.com', 'sarah@team.com', 'admin@swim.com'].map(e => (
+              {['alex@team.com', 'maria@parent.com', 'sarah@team.com', 'admin@swim.com'].map((e, i) => (
                 <button 
                   key={e} 
                   onClick={() => quickLogin(e)} 
-                  className="bg-slate-900/60 hover:bg-sky-500/20 border border-white/5 hover:border-sky-500/30 rounded-xl p-3 text-[10px] font-bold uppercase text-slate-400 hover:text-sky-400 truncate transition-all btn-press"
+                  className="bg-slate-900/60 hover:bg-sky-500/20 border border-white/5 hover:border-sky-500/30 rounded-xl p-3 text-[10px] font-bold uppercase text-slate-400 hover:text-sky-400 truncate transition-all btn-press animate-fade-in"
+                  style={{ animationDelay: `${0.3 + i * 0.1}s` }}
                 >
                   {e.split('@')[0]}
                 </button>
