@@ -169,6 +169,43 @@ async def login(req: LoginRequest):
     
     return {"id": str(user["id"]), "name": user["name"], "email": user["email"], "role": user["role"], "teamId": user["teamId"]}
 
+# Password Reset Endpoint
+class PasswordResetRequest(BaseModel):
+    email: str
+    new_password: str
+    reset_key: str  # Simple security key to prevent unauthorized resets
+
+@app.post("/api/auth/reset-password")
+async def reset_password(req: PasswordResetRequest):
+    # Security key to prevent unauthorized password resets
+    # Change this key after using it!
+    RESET_KEY = "SwimQual2024Reset!"
+    
+    if req.reset_key != RESET_KEY:
+        raise HTTPException(status_code=403, detail="Invalid reset key")
+    
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Find user (case insensitive)
+    user = db.users.find_one({"email": {"$regex": f"^{req.email}$", "$options": "i"}})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hash new password
+    hashed = bcrypt.hashpw(req.new_password.encode('utf-8'), bcrypt.gensalt())
+    
+    # Update password
+    result = db.users.update_one(
+        {"email": {"$regex": f"^{req.email}$", "$options": "i"}},
+        {"$set": {"password": hashed.decode('utf-8')}}
+    )
+    
+    if result.modified_count > 0:
+        return {"success": True, "message": f"Password updated for {user.get('email')}"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to update password")
+
 @app.get("/api/auth/users")
 async def get_users():
     users = list(db.users.find({}).limit(1000))
