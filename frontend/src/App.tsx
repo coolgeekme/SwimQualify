@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import Layout from './components/Layout';
 import DashboardCard from './components/DashboardCard';
+import StandardsVerificationModal from './components/StandardsVerificationModal';
+import { getAchievementLevel, getLevelColor, getLevelDescription, formatTimeFromSeconds } from './utils/motivationalTimes';
 import { EVENTS, MOCK_STANDARDS, MOCK_TIMES, MOCK_ATHLETES, MOCK_USERS } from './constants';
 import { formatTime, calculatePace, parseTime, getAgeGroup, getAgeGroupAtDate } from './utils/time';
 import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -200,6 +202,9 @@ const App: React.FC = () => {
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [sharedTeamData, setSharedTeamData] = useState<any>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Standards verification modal state
+  const [showVerifyStandards, setShowVerifyStandards] = useState(false);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -1738,7 +1743,17 @@ const App: React.FC = () => {
         {/* Section Title */}
         <div className="flex items-center justify-between animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <h3 className="font-display text-xl font-bold text-white uppercase tracking-wide">Season Best</h3>
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length} Events</span>
+          <div className="flex items-center space-x-3">
+            <button 
+              data-testid="verify-standards-btn"
+              onClick={() => setShowVerifyStandards(true)}
+              className="flex items-center space-x-1.5 text-sky-400 text-[10px] font-bold uppercase tracking-widest hover:text-sky-300 transition-colors"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Verify Times</span>
+            </button>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length} Events</span>
+          </div>
         </div>
 
         {/* Event Cards */}
@@ -1785,6 +1800,7 @@ const App: React.FC = () => {
                 <div className="flex items-center space-x-2"><Filter className="w-4 h-4 text-blue-500" /><select value={explorerFilter.ageGroup} onChange={e => setExplorerFilter({...explorerFilter, ageGroup: e.target.value})} className="bg-transparent text-xs font-black uppercase outline-none focus:text-white"><option value="10U">10U</option><option value="11-12">11-12</option><option value="13-14">13-14</option><option value="15-16">15-16</option><option value="17-18">17-18</option></select></div>
                 <div className="flex items-center space-x-2 border-l border-slate-700 pl-3"><UserIcon className="w-4 h-4 text-pink-500" /><select value={explorerFilter.gender} onChange={e => setExplorerFilter({...explorerFilter, gender: e.target.value as 'M' | 'F'})} className="bg-transparent text-xs font-black uppercase outline-none focus:text-white"><option value="M">Boys</option><option value="F">Girls</option></select></div>
                 <div className="flex items-center space-x-2 border-l border-slate-700 pl-3"><Ruler className="w-4 h-4 text-blue-400" /><select value={explorerFilter.course} onChange={e => setExplorerFilter({...explorerFilter, course: e.target.value as Course})} className="bg-transparent text-xs font-black uppercase outline-none focus:text-white"><option value={Course.SCY}>SCY (Short Course Yards)</option><option value={Course.SCM}>SCM (Short Course Meters)</option><option value={Course.LCM}>LCM (Long Course Meters)</option></select></div>
+                <button data-testid="verify-standards-admin-btn" onClick={() => setShowVerifyStandards(true)} className="ml-auto flex items-center space-x-1.5 bg-sky-500/10 text-sky-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide hover:bg-sky-500/20 transition-all"><ShieldCheck className="w-3.5 h-3.5" /><span>Verify Official Times</span></button>
               </div>
               <div className="space-y-3">
                   {events.filter(e => e.course === explorerFilter.course && e.ageGroup === explorerFilter.ageGroup).map(ev => {
@@ -2494,6 +2510,12 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Standards Verification Modal */}
+      <StandardsVerificationModal
+        isOpen={showVerifyStandards}
+        onClose={() => setShowVerifyStandards(false)}
+      />
     </Layout>
   );
 };
