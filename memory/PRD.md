@@ -1,73 +1,76 @@
 # SwimQual.app - Product Requirements Document
 
-## Last Updated: Mar 15, 2026
+## Problem Statement
+SwimQual.app is a full-stack application for swimmers, coaches, and parents to track qualifying times, manage teams, and research USA Swimming standards.
 
-## Original Problem Statement
-SwimQual.app - A swim time tracking application with MongoDB backend, featuring:
-- Multi-user access (Swimmer, Parent, Coach, Admin roles)
-- Event & time tracking with qualification badges
-- AI-powered heat sheet scanner (GPT-4o Vision)
-- AI standards research (Perplexity + Claude for PDF reading)
-- Team sharing via public links
-- USA Swimming Motivational Time Standards display
-
-## Tech Stack
-- Frontend: React (port 3000)
-- Backend: FastAPI (port 8001)
-- Database: MongoDB
-- AI: Perplexity AI (web search), Anthropic Claude (PDF extraction), OpenAI GPT-4o (image analysis)
+## Core Architecture
+- **Frontend:** React + TypeScript + Tailwind CSS (dark glassmorphism theme)
+- **Backend:** Python + FastAPI
+- **Database:** MongoDB
+- **AI:** Anthropic Claude + Perplexity AI (via Emergent LLM Key)
 
 ## What's Been Implemented
-- [x] Core application with role-based authentication
-- [x] Dashboard with event cards and qualification tracking
-- [x] Heat sheet scanner with batch upload
-- [x] Standards research with AI (Perplexity + Claude for PDF accuracy)
-- [x] Stroke guide with YouTube tutorials
-- [x] Logo removal (Feb 6, 2026)
-- [x] Year/season selector for standards research
-- [x] Age-group specific events
-- [x] Team sharing via public links
-- [x] Manual editing of researched times before applying
-- [x] Dashboard sorting by qualification status
-- [x] Data overwriting for new standards
-- [x] **USA Swimming Motivational Time Standards (Mar 15, 2026)** - Shows B, BB, A, AA, AAA, AAAA levels on event cards
 
-## Recent Changes
-- Mar 20, 2026: **Micro-Animations & Splash Screen Enhancement**
-  - Added animated splash screen with floating logo, pulsing glow, and loading dots
-  - Staggered entrance animations for event cards and UI elements
-  - Floating animation on profile avatar and header logo
-  - Badge shine effect on USA Time badges
-  - Icon bounce on hover for navigation and action buttons
-  - Glow pulse effect on active navigation item
-  - Ripple effect on primary buttons
-  - Water wave animation on hero card
-  - Page transition animations
-  - Enhanced hover states with lift and glow effects
-- Mar 20, 2026: **Major UI Redesign - Dark Theme**
-  - New dark navy background (#0a0f1a) throughout app
-  - Glass-morphism card effects (blur backdrop, subtle borders)
-  - Gradient buttons (sky-500 to blue-600)
-  - Updated fonts: Barlow Condensed (display), Inter (body)
-  - New bottom navigation with active state highlighting
-  - Hero card with pool image on dashboard
-  - Updated all screens: Login, Register, Dashboard, Focus, Team, Event Detail
-- Mar 15, 2026: Integrated USA Swimming Motivational Time Standards display on dashboard
-  - Added `/app/frontend/src/utils/motivationalTimes.ts` with **OFFICIAL 2024-2028** SCY standards for 10U, 11-12, 13-14 (boys & girls)
-  - Source: https://swimgoals.app/guides/motivational-times (USA Swimming official data)
-  - Updated `DashboardCard.tsx` to show achievement level badge (B/BB/A/AA/AAA/AAAA) next to best time
-  - Shows next target time to reach next level (e.g., "30.49 for BB")
-  - Color-coded badges: purple (AAAA), amber (AAA), blue (AA), green (A), teal (BB), slate (B)
-  - Uses age-group standards (11-12 combined), not single-age standards
+### Authentication & Users
+- Demo login buttons (Alex, Maria, Sarah, Admin)
+- Role-based access (swimmer, parent, coach, admin)
 
-## P0 - Critical Pending Issues
-- [ ] Team sharing page not displaying swimmer times (backend fix deployed, needs user verification after redeploy)
+### Dashboard
+- Season best times display with event cards
+- Achievement level badges (B, BB, A, AA, AAA, AAAA)
+- Regional/State qualifying cut comparison
+- Performance trend charts
 
-## Backlog
-- P1: Import meet results from files (CSV, Hy-Tek .hy3)
-- P2: Expand motivational standards to include SCM and LCM courses
-- P2: Add 15-16 and 17-18 age group standards
-- P2: Build SwimQual.app into myswim.io competitor (public profiles, historical database)
-- P2: Add "Lookup on MySwim.io" button
-- P2: Add social sharing buttons to team share modal
-- P3: Refactor App.tsx (2400+ lines) into smaller components
+### Standards Data (COMPLETED Feb 2026)
+- **SCY:** All age groups (10U, 11-12, 13-14, 15-16, 17-18) - verified correct
+- **LCM:** All age groups - 11-12 Boys/Girls corrected from official USA Swimming PDFs (Feb 2026), 13-18 verified correct, 10U expanded with missing events (50 Fly, 100 Fly, 200 IM)
+- **SCM:** All age groups registered in index - data verified for 11-12
+- **Standards Verification Modal:** Users can view official times by course/age/gender
+
+### AI Features
+- AI-powered standards research (Perplexity + Claude)
+- Heat sheet scanner (document extraction)
+- Stroke insights generation
+
+### Team Management
+- Team sharing with public read-only links
+- Athlete roster management
+- Event management (create, edit, delete)
+
+### Admin Tools
+- Standards Explorer with filter by age/gender/course
+- Manual standards editing
+- Event management
+
+## Data Source
+Official USA Swimming 2024-2028 Motivational Time Standards
+- Source verified against: myswimapp.com, official USA Swimming PDFs
+- Last verified: Feb 2026
+
+## Prioritized Backlog
+
+### P0 (Complete)
+- [x] Correct LCM 11-12 Boys/Girls standards (was completely wrong)
+- [x] Register all LCM/SCM age groups in MOTIVATIONAL_STANDARDS index
+- [x] Standards Verification Modal UI
+- [x] Add missing 10U LCM events (50 Fly, 100 Fly, 200 IM)
+
+### P1 (Next)
+- [ ] Import meet results from files (CSV, Hy-Tek .hy3)
+- [ ] Verify Team Sharing works in production post-deploy
+
+### P2 (Future)
+- [ ] Swimmer percentile rank vs national swimmers
+- [ ] Celebration animations for PBs/new qualifications
+- [ ] Verify SCM 10U data (50 Fly for boys may need correction)
+
+### P3 (Backlog)
+- [ ] Mobile PWA with offline support
+- [ ] Social sharing buttons (Twitter, Facebook) for team share
+- [ ] Refactor App.tsx (2500+ lines) into smaller modular components
+
+## Key Files
+- `/app/frontend/src/utils/motivationalTimes.ts` - All standards data
+- `/app/frontend/src/components/StandardsVerificationModal.tsx` - Verify modal
+- `/app/frontend/src/App.tsx` - Main UI (2500+ lines)
+- `/app/backend/server.py` - FastAPI backend
