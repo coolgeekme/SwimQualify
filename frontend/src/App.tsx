@@ -30,6 +30,7 @@ interface ExtractedTime {
   date?: string;
   selected?: boolean;
   matchedEventName?: string; // The app's event name this matches to
+  matchedEventId?: string; // The app's event ID this matches to
   matchConfidence?: 'high' | 'medium' | 'low';
 }
 
@@ -205,6 +206,13 @@ const App: React.FC = () => {
 
   // Standards verification modal state
   const [showVerifyStandards, setShowVerifyStandards] = useState(false);
+
+  // Dashboard & shared view search/filter state
+  const [eventSearchQuery, setEventSearchQuery] = useState('');
+  const [eventStrokeFilter, setEventStrokeFilter] = useState<string>('all');
+  const [eventCourseFilter, setEventCourseFilter] = useState<string>('all');
+  const [eventSortBy, setEventSortBy] = useState<string>('qualification');
+  const [sharedSearchQuery, setSharedSearchQuery] = useState('');
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -940,31 +948,60 @@ const App: React.FC = () => {
   };
 
   // Helper to match extracted event to app events
-  const matchExtractedEventToApp = (extractedTime: ExtractedTime): { matchedName: string; confidence: 'high' | 'medium' | 'low' } => {
+  const matchExtractedEventToApp = (extractedTime: ExtractedTime): { matchedName: string; confidence: 'high' | 'medium' | 'low'; matchedEventId?: string } => {
+    // Comprehensive stroke name normalization
     const strokeMap: Record<string, string> = {
-      'Free': 'Freestyle', 'Freestyle': 'Freestyle', 'FR': 'Freestyle',
-      'Back': 'Backstroke', 'Backstroke': 'Backstroke', 'BK': 'Backstroke',
-      'Breast': 'Breaststroke', 'Breaststroke': 'Breaststroke', 'BR': 'Breaststroke',
-      'Fly': 'Butterfly', 'Butterfly': 'Butterfly', 'FL': 'Butterfly',
-      'IM': 'Individual Medley', 'Individual Medley': 'Individual Medley', 'I.M.': 'Individual Medley'
+      'Free': 'Freestyle', 'Freestyle': 'Freestyle', 'FR': 'Freestyle', 'Fr': 'Freestyle',
+      'free': 'Freestyle', 'freestyle': 'Freestyle', 'FREESTYLE': 'Freestyle', 'Frstyl': 'Freestyle',
+      'Back': 'Backstroke', 'Backstroke': 'Backstroke', 'BK': 'Backstroke', 'Bk': 'Backstroke',
+      'back': 'Backstroke', 'backstroke': 'Backstroke', 'BACKSTROKE': 'Backstroke', 'Bckstrk': 'Backstroke',
+      'Breast': 'Breaststroke', 'Breaststroke': 'Breaststroke', 'BR': 'Breaststroke', 'Br': 'Breaststroke',
+      'breast': 'Breaststroke', 'breaststroke': 'Breaststroke', 'BREASTSTROKE': 'Breaststroke', 'Brstrk': 'Breaststroke',
+      'Fly': 'Butterfly', 'Butterfly': 'Butterfly', 'FL': 'Butterfly', 'Fl': 'Butterfly',
+      'fly': 'Butterfly', 'butterfly': 'Butterfly', 'BUTTERFLY': 'Butterfly',
+      'IM': 'Individual Medley', 'Individual Medley': 'Individual Medley', 'I.M.': 'Individual Medley',
+      'Ind. Medley': 'Individual Medley', 'Ind Medley': 'Individual Medley', 'Medley': 'Individual Medley',
+      'IND MEDLEY': 'Individual Medley', 'I.M': 'Individual Medley'
     };
     
     const normalizedStroke = strokeMap[extractedTime.stroke] || extractedTime.stroke;
     
-    // Try to find exact match
+    // Also try to parse the full event name for matching (e.g. "100 M Freestyle", "100 Yard Free")
+    const eventNameStr = (extractedTime.eventName || '').toLowerCase();
+    let parsedDistance = extractedTime.distance;
+    let parsedStroke = normalizedStroke;
+    
+    // Parse event names like "100 M Freestyle", "200 Yard Breast", "50 Free", "100 Fly"
+    const nameMatch = eventNameStr.match(/(\d+)\s*(?:m|meter|meters|yard|yards|y)?\s*(.+)/i);
+    if (nameMatch) {
+      parsedDistance = parseInt(nameMatch[1]);
+      const strokePart = nameMatch[2].trim().replace(/^(m|meter|meters|yard|yards|y)\s*/i, '');
+      // Try to map the stroke part
+      for (const [key, val] of Object.entries(strokeMap)) {
+        if (strokePart.toLowerCase() === key.toLowerCase() || strokePart.toLowerCase().startsWith(key.toLowerCase())) {
+          parsedStroke = val;
+          break;
+        }
+      }
+    }
+    
+    // Try to find exact match by distance + stroke (using both original and parsed values)
     const exactMatch = events.find(e => 
+      e.distance === parsedDistance && 
+      e.stroke === parsedStroke
+    ) || events.find(e => 
       e.distance === extractedTime.distance && 
       e.stroke === normalizedStroke
     );
     
     if (exactMatch) {
-      return { matchedName: exactMatch.name, confidence: 'high' };
+      return { matchedName: exactMatch.name, confidence: 'high', matchedEventId: exactMatch.id };
     }
     
-    // Try partial match by distance
-    const distanceMatch = events.find(e => e.distance === extractedTime.distance);
+    // Try fuzzy match - distance only
+    const distanceMatch = events.find(e => e.distance === parsedDistance || e.distance === extractedTime.distance);
     if (distanceMatch) {
-      return { matchedName: `${extractedTime.distance} ${extractedTime.stroke}`, confidence: 'medium' };
+      return { matchedName: `${parsedDistance} ${parsedStroke.split(' ')[0]}`, confidence: 'medium' };
     }
     
     return { matchedName: extractedTime.eventName, confidence: 'low' };
@@ -1006,6 +1043,7 @@ const App: React.FC = () => {
                 ...t, 
                 selected: t.swimmerName?.toLowerCase().includes(currentAthlete.name.toLowerCase().split(' ')[0]) || false,
                 matchedEventName: match.matchedName,
+                matchedEventId: match.matchedEventId,
                 matchConfidence: match.confidence
               };
             });
@@ -1058,12 +1096,20 @@ const App: React.FC = () => {
         };
         const normalizedStroke = strokeMap[time.stroke] || time.stroke;
         
-        let matchingEvent = events.find(e => 
-          e.distance === time.distance && 
-          e.stroke === normalizedStroke &&
-          e.ageGroup === currentAthlete.ageGroup &&
-          e.course === scanMeetDetails.course
-        );
+        // If user manually mapped to an existing event, use that directly
+        let matchingEvent = time.matchedEventId 
+          ? events.find(e => e.id === time.matchedEventId) 
+          : null;
+        
+        // Otherwise try auto-matching by distance + stroke
+        if (!matchingEvent) {
+          matchingEvent = events.find(e => 
+            e.distance === time.distance && 
+            e.stroke === normalizedStroke &&
+            e.ageGroup === currentAthlete.ageGroup &&
+            e.course === scanMeetDetails.course
+          );
+        }
 
         if (!matchingEvent) {
           // Create the event
@@ -1425,8 +1471,7 @@ const App: React.FC = () => {
                 {extractedTimes.map((time, index) => (
                   <div 
                     key={index}
-                    onClick={() => toggleExtractedTime(index)}
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    className={`p-4 rounded-xl border-2 transition-all ${
                       time.selected 
                         ? 'border-green-500 bg-green-50' 
                         : 'border-slate-200 bg-slate-50 opacity-60'
@@ -1434,7 +1479,10 @@ const App: React.FC = () => {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${time.selected ? 'bg-green-500' : 'bg-slate-300'}`}>
+                        <div 
+                          onClick={() => toggleExtractedTime(index)}
+                          className={`w-6 h-6 rounded-full flex items-center justify-center cursor-pointer ${time.selected ? 'bg-green-500' : 'bg-slate-300'}`}
+                        >
                           {time.selected && <CheckCircle2 className="w-4 h-4 text-white" />}
                         </div>
                         <div>
@@ -1446,12 +1494,12 @@ const App: React.FC = () => {
                                 time.matchConfidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
                                 'bg-red-100 text-red-700'
                               }`}>
-                                {time.matchConfidence === 'high' ? '✓ Matched' : time.matchConfidence === 'medium' ? '~ Partial' : '? New'}
+                                {time.matchConfidence === 'high' ? 'Matched' : time.matchConfidence === 'medium' ? 'Partial' : 'New'}
                               </span>
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 uppercase font-bold">{time.swimmerName}</p>
-                          <p className="text-[9px] text-slate-400">{time.place ? `${time.place}${['st','nd','rd'][time.place-1] || 'th'} Place` : ''} {time.heat ? `• Heat ${time.heat}` : ''} {time.lane ? `• Lane ${time.lane}` : ''}</p>
+                          <p className="text-[9px] text-slate-400">{time.place ? `${time.place}${['st','nd','rd'][time.place-1] || 'th'} Place` : ''} {time.heat ? `Heat ${time.heat}` : ''} {time.lane ? `Lane ${time.lane}` : ''}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -1459,6 +1507,37 @@ const App: React.FC = () => {
                         <p className="text-[9px] text-slate-400">{time.distance}y {time.stroke}</p>
                       </div>
                     </div>
+                    {/* Manual event mapping dropdown for non-high-confidence matches */}
+                    {time.matchConfidence !== 'high' && (
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <label className="block text-[9px] font-bold text-amber-600 uppercase mb-1">Map to event:</label>
+                        <select
+                          data-testid={`event-map-select-${index}`}
+                          value={time.matchedEventId || ''}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => {
+                            const selectedEvent = events.find(ev => ev.id === e.target.value);
+                            setExtractedTimes(prev => prev.map((t, i) => i === index ? {
+                              ...t,
+                              matchedEventId: e.target.value || undefined,
+                              matchedEventName: selectedEvent?.name || t.matchedEventName,
+                              matchConfidence: e.target.value ? 'high' : t.matchConfidence,
+                              distance: selectedEvent?.distance || t.distance,
+                              stroke: selectedEvent?.stroke || t.stroke
+                            } : t));
+                          }}
+                          className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-amber-400"
+                        >
+                          <option value="">-- Create as new event --</option>
+                          {events
+                            .filter(e => e.ageGroup === currentAthlete?.ageGroup)
+                            .map(e => (
+                              <option key={e.id} value={e.id}>{e.name} ({e.course})</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1652,8 +1731,21 @@ const App: React.FC = () => {
     
     const selectedEvents = events.filter(e => currentAthlete.selectedEventIds.includes(e.id));
     
+    // Apply search/filter
+    const filteredEvents = selectedEvents.filter(e => {
+      if (eventSearchQuery) {
+        const q = eventSearchQuery.toLowerCase();
+        const nameMatch = e.name.toLowerCase().includes(q);
+        const strokeMatch = e.stroke.toLowerCase().includes(q);
+        if (!nameMatch && !strokeMatch) return false;
+      }
+      if (eventStrokeFilter !== 'all' && e.stroke !== eventStrokeFilter) return false;
+      if (eventCourseFilter !== 'all' && e.course !== eventCourseFilter) return false;
+      return true;
+    });
+    
     // Sort events by: 1) State Qualified, 2) Regional Qualified, 3) Closest to Regional, 4) Closest to State
-    const sortedEvents = [...selectedEvents].sort((a, b) => {
+    const sortedEvents = [...filteredEvents].sort((a, b) => {
       const aBestEntry = getBestTime(a.id, currentAthlete.id);
       const bBestEntry = getBestTime(b.id, currentAthlete.id);
       const aTime = aBestEntry?.timeSeconds;
@@ -1753,9 +1845,58 @@ const App: React.FC = () => {
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Verify Times</span>
             </button>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length} Events</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length}{sortedEvents.length !== selectedEvents.length ? `/${selectedEvents.length}` : ''} Events</span>
           </div>
         </div>
+
+        {/* Search & Filter Bar */}
+        {selectedEvents.length > 3 && (
+          <div data-testid="event-filter-bar" className="glass-card p-3 rounded-xl flex flex-wrap items-center gap-2 animate-fade-in" style={{ animationDelay: '0.25s' }}>
+            <div className="relative flex-1 min-w-[140px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+              <input
+                data-testid="event-search-input"
+                type="text"
+                value={eventSearchQuery}
+                onChange={e => setEventSearchQuery(e.target.value)}
+                placeholder="Search events..."
+                className="w-full bg-slate-900/60 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs font-bold text-white outline-none focus:border-sky-500/50 placeholder:text-slate-600 transition-all"
+              />
+            </div>
+            <select
+              data-testid="stroke-filter-select"
+              value={eventStrokeFilter}
+              onChange={e => setEventStrokeFilter(e.target.value)}
+              className="bg-slate-900/60 border border-white/10 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-300 uppercase outline-none focus:border-sky-500/50"
+            >
+              <option value="all">All Strokes</option>
+              <option value="Freestyle">Free</option>
+              <option value="Backstroke">Back</option>
+              <option value="Breaststroke">Breast</option>
+              <option value="Butterfly">Fly</option>
+              <option value="Individual Medley">IM</option>
+            </select>
+            <select
+              data-testid="course-filter-select"
+              value={eventCourseFilter}
+              onChange={e => setEventCourseFilter(e.target.value)}
+              className="bg-slate-900/60 border border-white/10 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-300 uppercase outline-none focus:border-sky-500/50"
+            >
+              <option value="all">All Courses</option>
+              <option value="SCY">SCY</option>
+              <option value="LCM">LCM</option>
+              <option value="SCM">SCM</option>
+            </select>
+            {(eventSearchQuery || eventStrokeFilter !== 'all' || eventCourseFilter !== 'all') && (
+              <button
+                onClick={() => { setEventSearchQuery(''); setEventStrokeFilter('all'); setEventCourseFilter('all'); }}
+                className="text-[10px] font-bold text-red-400 uppercase px-2 py-2 hover:text-red-300"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Event Cards */}
         {sortedEvents.length === 0 ? (
@@ -2176,17 +2317,56 @@ const App: React.FC = () => {
             </div>
           </div>
 
+          {/* Search/Filter Bar */}
+          <div data-testid="shared-search-bar" className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                data-testid="shared-search-input"
+                type="text"
+                value={sharedSearchQuery}
+                onChange={e => setSharedSearchQuery(e.target.value)}
+                placeholder="Search swimmers or events..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+              />
+              {sharedSearchQuery && (
+                <button onClick={() => setSharedSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Swimmers Grid */}
           <div className="space-y-6">
-            {sharedAthletes.map((athlete: any) => {
+            {sharedAthletes.filter((athlete: any) => {
+              if (!sharedSearchQuery) return true;
+              const q = sharedSearchQuery.toLowerCase();
+              // Match swimmer name
+              if (athlete.name?.toLowerCase().includes(q)) return true;
+              // Match event names for this swimmer
+              const athleteEventIds = [...new Set(sharedTimes.filter((t: any) => t.athleteId === athlete.id).map((t: any) => t.eventId))];
+              const hasMatchingEvent = sharedEvents.some((e: any) => 
+                athleteEventIds.includes(e.id) && (e.name?.toLowerCase().includes(q) || e.stroke?.toLowerCase().includes(q))
+              );
+              return hasMatchingEvent;
+            }).map((athlete: any) => {
               // Get all events that either: are selected by the athlete OR have times recorded
               const athleteTimes = sharedTimes.filter((t: any) => t.athleteId === athlete.id);
               const eventIdsWithTimes = [...new Set(athleteTimes.map((t: any) => t.eventId))];
               const selectedIds = athlete.selectedEventIds || [];
               const allRelevantEventIds = [...new Set([...selectedIds, ...eventIdsWithTimes])];
-              const athleteEvents = sharedEvents.filter((e: any) => 
+              let athleteEvents = sharedEvents.filter((e: any) => 
                 allRelevantEventIds.includes(e.id)
               );
+              
+              // If searching by event name (not swimmer name), filter events too
+              if (sharedSearchQuery && !athlete.name?.toLowerCase().includes(sharedSearchQuery.toLowerCase())) {
+                const q = sharedSearchQuery.toLowerCase();
+                athleteEvents = athleteEvents.filter((e: any) => 
+                  e.name?.toLowerCase().includes(q) || e.stroke?.toLowerCase().includes(q)
+                );
+              }
 
               return (
                 <div key={athlete.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
