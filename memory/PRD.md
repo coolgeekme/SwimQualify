@@ -56,6 +56,10 @@ Official USA Swimming 2024-2028 Motivational Time Standards
 - [x] Add missing 10U LCM events (50 Fly, 100 Fly, 200 IM)
 - [x] Fix Team Sharing: times not showing (wrong DB collection: db.times→db.timeEntries, db.standards→db.qualifyingStandards)
 - [x] Fix Team Sharing: viewer sees all swimmers (now stores+filters by specific athleteIds)
+- [x] Enhanced event name normalizer for heat sheet scanning (handles Meet Mobile naming variations)
+- [x] Manual event mapping dropdown for unmatched scan results
+- [x] Search/filter on Dashboard (search by name, filter by stroke/course) - shows when >3 events
+- [x] Search/filter on Shared View (search swimmers and events)
 
 ### P1 (Next)
 - [ ] Import meet results from files (CSV, Hy-Tek .hy3)
