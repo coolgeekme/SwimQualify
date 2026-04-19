@@ -116,6 +116,7 @@ class DocumentAnalyzeRequest(BaseModel):
 class TeamShareRequest(BaseModel):
     teamId: str
     shareName: Optional[str] = None
+    athleteIds: Optional[List[str]] = None
 
 def strip_mongo_id(doc):
     if doc is None:
@@ -960,12 +961,26 @@ async def create_team_share(req: TeamShareRequest, request: Request):
             "shareName": existing_share.get("shareName", "My Team")
         }
     
-    # Create new share - store userId for fetching their athletes
+    # Create new share - store userId and specific athleteIds for fetching their athletes
     share_code = generate_share_code()
+    
+    # If athleteIds not provided, find the user's athletes
+    athlete_ids = req.athleteIds or []
+    if not athlete_ids:
+        # For parents, get their linked athletes
+        parent_athletes = list(db.athletes.find({"parentId": user_id}, {"_id": 0, "id": 1}))
+        if parent_athletes:
+            athlete_ids = [a["id"] for a in parent_athletes]
+        else:
+            # For coaches/admins, get all athletes on their team
+            team_athletes = list(db.athletes.find({"teamId": team_id}, {"_id": 0, "id": 1}))
+            athlete_ids = [a["id"] for a in team_athletes]
+    
     share_doc = {
         "shareCode": share_code,
         "teamId": team_id,
         "createdBy": user_id,
+        "athleteIds": athlete_ids,
         "shareName": req.shareName or "My Team",
         "created": datetime.utcnow().isoformat(),
         "active": True,
@@ -990,57 +1005,56 @@ async def get_shared_team(share_code: str):
     
     team_id = share["teamId"]
     created_by = share.get("createdBy")
+    stored_athlete_ids = share.get("athleteIds", [])
     
     # Increment view count
     db.team_shares.update_one({"shareCode": share_code}, {"$inc": {"viewCount": 1}})
     
-    # Get athletes - try multiple strategies to find the user's athletes
+    # Get athletes - use stored athleteIds if available (most reliable)
     athletes = []
     
-    # Strategy 1: By teamId
-    athletes = list(db.athletes.find({"teamId": team_id}, {"_id": 0}))
+    if stored_athlete_ids:
+        # Best strategy: use the exact athlete IDs stored at share-creation time
+        athletes = list(db.athletes.find({"id": {"$in": stored_athlete_ids}}, {"_id": 0}))
     
-    # Strategy 2: By parentId (for parent accounts)
+    # Fallback strategies if no stored IDs (backwards compat with old shares)
     if len(athletes) == 0 and created_by:
+        # Try by parentId (for parent accounts)
         athletes = list(db.athletes.find({"parentId": created_by}, {"_id": 0}))
     
-    # Strategy 3: By userId (for swimmer accounts)
     if len(athletes) == 0 and created_by:
-        athletes = list(db.athletes.find({"userId": created_by}, {"_id": 0}).limit(100))
+        # Try by userId (for swimmer accounts)
+        athletes = list(db.athletes.find({"userId": created_by}, {"_id": 0}))
     
-    # Strategy 4: Get all athletes (fallback for backwards compatibility)
     if len(athletes) == 0:
-        athletes = list(db.athletes.find({}, {"_id": 0}).limit(100))
-    
-    # Get ALL times from database - don't filter by athleteId here
-    # Let the frontend filter since there might be ID format mismatches
-    all_times = list(db.times.find({}, {"_id": 0}).limit(5000))
+        # Last resort: get athletes by teamId
+        athletes = list(db.athletes.find({"teamId": team_id}, {"_id": 0}).limit(50))
     
     # Get athlete IDs
     athlete_ids = [a["id"] for a in athletes]
     
-    # Filter times to only those belonging to our athletes
-    times = [t for t in all_times if t.get("athleteId") in athlete_ids]
+    # Get times for these specific athletes
+    if athlete_ids:
+        athlete_times = list(db.timeEntries.find({"athleteId": {"$in": athlete_ids}}, {"_id": 0}))
+    else:
+        athlete_times = []
     
     # Debug logging
-    print(f"Share {share_code}: teamId={team_id}, createdBy={created_by}")
+    print(f"Share {share_code}: teamId={team_id}, createdBy={created_by}, storedIds={stored_athlete_ids}")
     print(f"  Athletes: {len(athletes)}, Athlete IDs: {athlete_ids}")
-    print(f"  All times in DB: {len(all_times)}, Filtered times: {len(times)}")
-    if all_times and len(times) == 0:
-        sample_athlete_ids = list(set([t.get("athleteId") for t in all_times[:5]]))
-        print(f"  Sample athleteIds in times: {sample_athlete_ids}")
+    print(f"  Times found: {len(athlete_times)}")
     
     # Get events
     events = list(db.events.find({}, {"_id": 0}).limit(500))
     
-    # Get standards
-    standards = list(db.standards.find({}, {"_id": 0}).limit(1000))
+    # Get qualifying standards
+    standards = list(db.qualifyingStandards.find({}, {"_id": 0}).limit(1000))
     
     return {
         "shareName": share.get("shareName", "Shared Team"),
         "teamId": team_id,
         "athletes": athletes,
-        "times": times,
+        "times": athlete_times,
         "events": events,
         "standards": standards,
         "viewCount": share.get("viewCount", 0) + 1

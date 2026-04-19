@@ -225,7 +225,8 @@ const App: React.FC = () => {
         headers: getSessionHeaders(currentUser),
         body: JSON.stringify({ 
           teamId: currentUser.teamId,
-          shareName: `${currentUser.name}'s Team`
+          shareName: `${currentUser.name}'s Team`,
+          athleteIds: visibleAthletes.map(a => a.id)
         })
       });
       if (response.ok) {
@@ -2178,10 +2179,14 @@ const App: React.FC = () => {
           {/* Swimmers Grid */}
           <div className="space-y-6">
             {sharedAthletes.map((athlete: any) => {
-              const athleteEvents = sharedEvents.filter((e: any) => 
-                athlete.selectedEventIds?.includes(e.id)
-              );
+              // Get all events that either: are selected by the athlete OR have times recorded
               const athleteTimes = sharedTimes.filter((t: any) => t.athleteId === athlete.id);
+              const eventIdsWithTimes = [...new Set(athleteTimes.map((t: any) => t.eventId))];
+              const selectedIds = athlete.selectedEventIds || [];
+              const allRelevantEventIds = [...new Set([...selectedIds, ...eventIdsWithTimes])];
+              const athleteEvents = sharedEvents.filter((e: any) => 
+                allRelevantEventIds.includes(e.id)
+              );
 
               return (
                 <div key={athlete.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -2206,8 +2211,8 @@ const App: React.FC = () => {
 
                   {/* Events & All Times */}
                   <div className="p-4 space-y-4">
-                    {athleteEvents.length === 0 ? (
-                      <p className="text-center text-slate-400 text-sm py-4">No events tracked</p>
+                    {athleteEvents.length === 0 && athleteTimes.length === 0 ? (
+                      <p className="text-center text-slate-400 text-sm py-4">No times recorded yet</p>
                     ) : (
                       athleteEvents.map((event: any) => {
                         const eventTimes = sharedTimes
