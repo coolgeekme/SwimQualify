@@ -54,6 +54,8 @@ Official USA Swimming 2024-2028 Motivational Time Standards
 - [x] Register all LCM/SCM age groups in MOTIVATIONAL_STANDARDS index
 - [x] Standards Verification Modal UI
 - [x] Add missing 10U LCM events (50 Fly, 100 Fly, 200 IM)
+- [x] Fix Team Sharing: times not showing (wrong DB collection: db.times→db.timeEntries, db.standards→db.qualifyingStandards)
+- [x] Fix Team Sharing: viewer sees all swimmers (now stores+filters by specific athleteIds)
 
 ### P1 (Next)
 - [ ] Import meet results from files (CSV, Hy-Tek .hy3)
