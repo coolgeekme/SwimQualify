@@ -271,8 +271,12 @@ async def delete_athlete(athlete_id: str):
 # Time Entries Endpoints
 @app.get("/api/times")
 async def get_times():
-    times = list(db.timeEntries.find({}).limit(2000))
-    return [strip_mongo_id(t) for t in times]
+    try:
+        times = list(db.timeEntries.find({}).limit(5000))
+        return [strip_mongo_id(t) for t in times]
+    except Exception as e:
+        print(f"ERROR fetching times: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.post("/api/times")
 async def create_time(entry: TimeEntryCreate):
@@ -1095,3 +1099,21 @@ async def get_my_shares(request: Request):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+# Diagnostic endpoint - helps debug data issues
+@app.get("/api/debug/collections")
+async def debug_collections():
+    """Show counts for all collections to diagnose missing data"""
+    collections = db.list_collection_names()
+    counts = {}
+    for coll in collections:
+        counts[coll] = db[coll].count_documents({})
+    
+    # Also check if times might be in a different collection
+    time_collections = [c for c in collections if 'time' in c.lower()]
+    
+    return {
+        "collections": counts,
+        "time_related_collections": time_collections,
+        "db_name": db.name
+    }

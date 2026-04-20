@@ -106,23 +106,23 @@ const App: React.FC = () => {
 
         if (standardsRes.ok) {
           const dbStandards = await standardsRes.json();
-          setStandards(dbStandards.length > 0 ? dbStandards : MOCK_STANDARDS);
+          setStandards(dbStandards);
         } else {
-          setStandards(MOCK_STANDARDS);
+          setStandards([]);
         }
 
         if (athletesRes.ok) {
           const dbAthletes = await athletesRes.json();
-          setAthletes(dbAthletes.length > 0 ? dbAthletes : MOCK_ATHLETES);
+          setAthletes(dbAthletes);
         } else {
-          setAthletes(MOCK_ATHLETES);
+          setAthletes([]);
         }
 
         if (timesRes.ok) {
           const dbTimes = await timesRes.json();
-          setTimes(dbTimes.length > 0 ? dbTimes : MOCK_TIMES);
+          setTimes(dbTimes);
         } else {
-          setTimes(MOCK_TIMES);
+          setTimes([]);
         }
 
         if (usersRes.ok) {
@@ -146,9 +146,9 @@ const App: React.FC = () => {
       } catch (err) {
         console.error('Failed to load data:', err);
         setEvents(EVENTS);
-        setStandards(MOCK_STANDARDS);
-        setAthletes(MOCK_ATHLETES);
-        setTimes(MOCK_TIMES);
+        setStandards([]);
+        setAthletes([]);
+        setTimes([]);
       } finally {
         setIsLoading(false);
       }
