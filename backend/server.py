@@ -272,7 +272,22 @@ async def delete_athlete(athlete_id: str):
 @app.get("/api/times")
 async def get_times():
     try:
+        # Check primary collection
         times = list(db.timeEntries.find({}).limit(5000))
+        
+        # If empty, check if times might be in alternate collection name 'times'
+        if len(times) == 0:
+            alt_times = list(db.times.find({}).limit(5000))
+            if len(alt_times) > 0:
+                print(f"MIGRATION: Found {len(alt_times)} times in 'times' collection, migrating to 'timeEntries'")
+                for t in alt_times:
+                    try:
+                        db.timeEntries.insert_one(t)
+                    except:
+                        pass
+                times = list(db.timeEntries.find({}).limit(5000))
+        
+        print(f"GET /api/times: returning {len(times)} entries")
         return [strip_mongo_id(t) for t in times]
     except Exception as e:
         print(f"ERROR fetching times: {e}")
@@ -306,8 +321,26 @@ async def delete_time(time_id: str):
 # Qualifying Standards Endpoints
 @app.get("/api/standards")
 async def get_standards():
-    standards = list(db.qualifyingStandards.find({}).limit(1000))
-    return [strip_mongo_id(s) for s in standards]
+    try:
+        standards = list(db.qualifyingStandards.find({}).limit(1000))
+        
+        # If empty, check alternate collection name 'standards'
+        if len(standards) == 0:
+            alt_standards = list(db.standards.find({}).limit(1000))
+            if len(alt_standards) > 0:
+                print(f"MIGRATION: Found {len(alt_standards)} standards in 'standards' collection, migrating to 'qualifyingStandards'")
+                for s in alt_standards:
+                    try:
+                        db.qualifyingStandards.insert_one(s)
+                    except:
+                        pass
+                standards = list(db.qualifyingStandards.find({}).limit(1000))
+        
+        print(f"GET /api/standards: returning {len(standards)} entries")
+        return [strip_mongo_id(s) for s in standards]
+    except Exception as e:
+        print(f"ERROR fetching standards: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.post("/api/standards")
 async def create_standard(standard: StandardCreate):
@@ -1104,16 +1137,29 @@ async def health():
 @app.get("/api/debug/collections")
 async def debug_collections():
     """Show counts for all collections to diagnose missing data"""
-    collections = db.list_collection_names()
-    counts = {}
-    for coll in collections:
-        counts[coll] = db[coll].count_documents({})
-    
-    # Also check if times might be in a different collection
-    time_collections = [c for c in collections if 'time' in c.lower()]
-    
-    return {
-        "collections": counts,
-        "time_related_collections": time_collections,
-        "db_name": db.name
-    }
+    try:
+        collections = db.list_collection_names()
+        counts = {}
+        for coll in collections:
+            counts[coll] = db[coll].count_documents({})
+        
+        # Specifically check both possible collection names
+        time_counts = {
+            "timeEntries": db.timeEntries.count_documents({}),
+            "times": db.times.count_documents({})
+        }
+        standard_counts = {
+            "qualifyingStandards": db.qualifyingStandards.count_documents({}),
+            "standards": db.standards.count_documents({})
+        }
+        
+        return {
+            "db_name": db.name,
+            "all_collections": counts,
+            "time_entries": time_counts,
+            "standards_entries": standard_counts,
+            "athletes_count": db.athletes.count_documents({}),
+            "events_count": db.events.count_documents({})
+        }
+    except Exception as e:
+        return {"error": str(e)}
