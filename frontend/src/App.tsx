@@ -886,6 +886,52 @@ const App: React.FC = () => {
     }
   };
 
+  const handleEditStandard = async (standardId: string, newTime: number) => {
+    try {
+      const existing = standards.find(s => s.id === standardId);
+      if (!existing) return;
+      // Delete old and create new with updated time
+      await fetch(`/api/standards/${standardId}`, { method: 'DELETE', headers: getSessionHeaders(currentUser) });
+      const updated = { ...existing, cutTimeSeconds: newTime, id: `s_${Date.now()}` };
+      const res = await fetch('/api/standards', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify(updated)
+      });
+      if (res.ok) {
+        setStandards(prev => prev.map(s => s.id === standardId ? { ...updated } : s));
+      }
+    } catch (err) {
+      console.error('Failed to edit standard:', err);
+    }
+  };
+
+  const handleCreateStandard = async (eventId: string, ageGroup: string, gender: 'M' | 'F', course: string, region: 'Regional' | 'State', cutTimeSeconds: number) => {
+    try {
+      const newStandard = {
+        id: `s_${Date.now()}_${region.toLowerCase()}`,
+        eventId,
+        region,
+        ageGroup,
+        gender,
+        course,
+        cutTimeSeconds,
+        season: '2025'
+      };
+      const res = await fetch('/api/standards', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify(newStandard)
+      });
+      if (res.ok) {
+        setStandards(prev => [...prev, newStandard as any]);
+      }
+    } catch (err) {
+      console.error('Failed to create standard:', err);
+    }
+  };
+
+
   const handleDeleteTime = async (timeId: string) => {
     setDeletingTimeId(timeId);
   };
@@ -1917,7 +1963,9 @@ const App: React.FC = () => {
                   bestTime={getBestTime(event.id, currentAthlete.id)} 
                   standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} 
                   athleteGender={currentAthlete.gender} 
-                  onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }} 
+                  onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }}
+                  onEditStandard={handleEditStandard}
+                  onCreateStandard={(region, cutTime) => handleCreateStandard(event.id, event.ageGroup, currentAthlete.gender, event.course, region, cutTime)}
                 />
               </div>
             ))}

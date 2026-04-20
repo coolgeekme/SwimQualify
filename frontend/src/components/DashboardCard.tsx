@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Event, TimeEntry, QualifyingStandard } from '../types';
-import { formatTime } from '../utils/time';
-import { getAchievementLevel, getLevelColor, getNextLevel } from '../utils/motivationalTimes';
-import { Trophy, TrendingUp, ChevronRight, Star, CheckCircle2, Zap } from 'lucide-react';
+import { formatTime, parseTime } from '../utils/time';
+import { getAchievementLevel, getLevelColor, getNextLevel, getEventStandards, formatTimeFromSeconds } from '../utils/motivationalTimes';
+import { Trophy, TrendingUp, ChevronRight, Star, CheckCircle2, Zap, Edit3, X, Save } from 'lucide-react';
 
 interface Props {
   event: Event;
@@ -10,9 +10,14 @@ interface Props {
   standards: QualifyingStandard[];
   athleteGender: 'M' | 'F';
   onClick: () => void;
+  onEditStandard?: (standardId: string, newTime: number) => void;
+  onCreateStandard?: (region: 'Regional' | 'State', cutTimeSeconds: number) => void;
 }
 
-const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGender, onClick }) => {
+const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGender, onClick, onEditStandard, onCreateStandard }) => {
+  const [editingCut, setEditingCut] = useState<string | null>(null); // 'regional' | 'state' | null
+  const [editValue, setEditValue] = useState('');
+
   const regionalCut = standards.find(s => s.region === 'Regional');
   const stateCut = standards.find(s => s.region === 'State');
 
@@ -35,7 +40,6 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
     ? getNextLevel(bestTime.timeSeconds, event.name, event.ageGroup, athleteGender, event.course)
     : null;
 
-  // Level colors for dark theme
   const getLevelStyles = (level: string | null) => {
     switch (level) {
       case 'AAAA': return { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' };
@@ -49,6 +53,85 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
   };
 
   const levelStyles = getLevelStyles(achievementLevel);
+
+  const handleStartEdit = (type: 'regional' | 'state', e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cut = type === 'regional' ? regionalCut : stateCut;
+    setEditValue(cut ? formatTime(cut.cutTimeSeconds) : '');
+    setEditingCut(type);
+  };
+
+  const handleSaveEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const parsed = parseTime(editValue);
+    if (!parsed || parsed <= 0) {
+      setEditingCut(null);
+      return;
+    }
+    
+    const region = editingCut === 'regional' ? 'Regional' : 'State';
+    const existingCut = editingCut === 'regional' ? regionalCut : stateCut;
+    
+    if (existingCut && onEditStandard) {
+      onEditStandard(existingCut.id, parsed);
+    } else if (!existingCut && onCreateStandard) {
+      onCreateStandard(region as 'Regional' | 'State', parsed);
+    }
+    
+    setEditingCut(null);
+  };
+
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCut(null);
+  };
+
+  const renderCutLine = (label: string, type: 'regional' | 'state', cut: QualifyingStandard | undefined, qualified: boolean, gap: number | null) => {
+    const isEditing = editingCut === type;
+    
+    return (
+      <div className="flex justify-between items-center text-xs" data-testid={`${type}-cut-row-${event.id}`}>
+        <div className="flex items-center space-x-2">
+          {qualified && (type === 'state' ? <Trophy className="w-3 h-3 text-amber-400" /> : <CheckCircle2 className="w-3 h-3 text-green-400" />)}
+          <span className={`font-medium ${qualified ? (type === 'state' ? 'text-amber-400' : 'text-green-400') : 'text-slate-500'}`}>
+            {label}:
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          {isEditing ? (
+            <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
+              <input
+                data-testid={`edit-cut-input-${type}-${event.id}`}
+                type="text"
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(e as any); if (e.key === 'Escape') handleCancelEdit(e as any); }}
+                className="w-20 bg-slate-800 border border-sky-500/50 rounded px-1.5 py-0.5 text-xs font-mono text-white outline-none"
+                placeholder="mm:ss.xx"
+                autoFocus
+              />
+              <button onClick={handleSaveEdit} className="text-green-400 hover:text-green-300 p-0.5"><Save className="w-3 h-3" /></button>
+              <button onClick={handleCancelEdit} className="text-red-400 hover:text-red-300 p-0.5"><X className="w-3 h-3" /></button>
+            </div>
+          ) : (
+            <div 
+              className="flex items-center space-x-1 group/edit cursor-pointer"
+              onClick={e => handleStartEdit(type, e)}
+              data-testid={`edit-cut-btn-${type}-${event.id}`}
+            >
+              <span className={`font-display font-bold ${qualified ? (type === 'state' ? 'text-amber-400' : 'text-green-400') : 'text-white'} group-hover/edit:text-sky-400 transition-colors`}>
+                {cut ? formatTime(cut.cutTimeSeconds) : '--:--'}
+              </span>
+              {bestTime && !qualified && gap !== null && cut && (
+                <span className="text-[10px] text-sky-400 font-bold">+{gap.toFixed(2)}s</span>
+              )}
+              <Edit3 className="w-2.5 h-2.5 text-slate-600 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div 
@@ -141,44 +224,10 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
         </div>
       )}
 
-      {/* Cut Times */}
+      {/* Cut Times - Editable */}
       <div className="space-y-2 pt-3 border-t border-white/5">
-        {regionalCut && (
-          <div className="flex justify-between items-center text-xs">
-            <div className="flex items-center space-x-2">
-              {qualifiedRegional && <CheckCircle2 className="w-3 h-3 text-green-400" />}
-              <span className={`font-medium ${qualifiedRegional ? 'text-green-400' : 'text-slate-500'}`}>
-                Regional Cut:
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className={`font-display font-bold ${qualifiedRegional ? 'text-green-400' : 'text-white'}`}>
-                {formatTime(regionalCut.cutTimeSeconds)}
-              </span>
-              {bestTime && !qualifiedRegional && regionalGap !== null && (
-                <span className="text-[10px] text-sky-400 font-bold">+{regionalGap.toFixed(2)}s</span>
-              )}
-            </div>
-          </div>
-        )}
-        {stateCut && (
-          <div className="flex justify-between items-center text-xs">
-            <div className="flex items-center space-x-2">
-              {qualifiedState && <Trophy className="w-3 h-3 text-amber-400" />}
-              <span className={`font-medium ${qualifiedState ? 'text-amber-400' : 'text-slate-500'}`}>
-                State Cut:
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className={`font-display font-bold ${qualifiedState ? 'text-amber-400' : 'text-white'}`}>
-                {formatTime(stateCut.cutTimeSeconds)}
-              </span>
-              {bestTime && !qualifiedState && stateGap !== null && (
-                <span className="text-[10px] text-slate-500 font-bold">+{stateGap.toFixed(2)}s</span>
-              )}
-            </div>
-          </div>
-        )}
+        {renderCutLine('Regional Cut', 'regional', regionalCut, !!qualifiedRegional, regionalGap)}
+        {renderCutLine('State Cut', 'state', stateCut, !!qualifiedState, stateGap)}
       </div>
 
       {/* Details Link */}

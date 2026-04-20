@@ -418,7 +418,7 @@ const LCM_17_18_F: Record<string, MotivationalStandard> = {
 // SCM (SHORT COURSE METERS) STANDARDS
 // ============================================================================
 
-// SCM Standards for 10 & Under Boys (OFFICIAL 2024-2028)
+// SCM Standards for 10 & Under Boys (OFFICIAL 2024-2028 - Source: myswimapp.com/USA Swimming)
 const SCM_10U_M: Record<string, MotivationalStandard> = {
   '50 Free': { B: t('42.19'), BB: t('38.19'), A: t('34.29'), AA: t('32.99'), AAA: t('31.69'), AAAA: t('30.39') },
   '100 Free': { B: t('1:37.19'), BB: t('1:27.19'), A: t('1:17.09'), AA: t('1:13.79'), AAA: t('1:10.39'), AAAA: t('1:07.09') },
@@ -428,10 +428,13 @@ const SCM_10U_M: Record<string, MotivationalStandard> = {
   '100 Back': { B: t('1:51.19'), BB: t('1:39.59'), A: t('1:27.89'), AA: t('1:23.99'), AAA: t('1:20.09'), AAAA: t('1:16.29') },
   '50 Breast': { B: t('58.99'), BB: t('52.79'), A: t('46.49'), AA: t('44.39'), AAA: t('42.29'), AAAA: t('40.19') },
   '100 Breast': { B: t('2:06.09'), BB: t('1:53.09'), A: t('1:40.09'), AA: t('1:35.69'), AAA: t('1:31.39'), AAAA: t('1:26.99') },
-  '50 Fly': { B: t('53.49'), BB: t('47.19'), A: t('40.89'), AA: t('38.79'), AAA: t('36.69'), AAAA: t('34.59') },
+  '50 Fly': { B: t('51.39'), BB: t('45.59'), A: t('39.79'), AA: t('37.89'), AAA: t('35.99'), AAAA: t('33.99') },
+  '100 Fly': { B: t('2:05.49'), BB: t('1:49.29'), A: t('1:33.19'), AA: t('1:27.79'), AAA: t('1:22.49'), AAAA: t('1:17.09') },
+  '100 IM': { B: t('1:50.09'), BB: t('1:39.09'), A: t('1:28.09'), AA: t('1:24.39'), AAA: t('1:20.79'), AAAA: t('1:17.09') },
+  '200 IM': { B: t('4:01.59'), BB: t('3:36.59'), A: t('3:11.69'), AA: t('3:03.39'), AAA: t('2:55.09'), AAAA: t('2:46.69') },
 };
 
-// SCM Standards for 10 & Under Girls (OFFICIAL 2024-2028)
+// SCM Standards for 10 & Under Girls (OFFICIAL 2024-2028 - Source: myswimapp.com/USA Swimming)
 const SCM_10U_F: Record<string, MotivationalStandard> = {
   '50 Free': { B: t('43.99'), BB: t('39.79'), A: t('35.49'), AA: t('34.09'), AAA: t('32.69'), AAAA: t('31.29') },
   '100 Free': { B: t('1:40.29'), BB: t('1:29.69'), A: t('1:18.99'), AA: t('1:15.39'), AAA: t('1:11.89'), AAAA: t('1:08.29') },
@@ -441,9 +444,10 @@ const SCM_10U_F: Record<string, MotivationalStandard> = {
   '100 Back': { B: t('1:56.89'), BB: t('1:43.89'), A: t('1:30.89'), AA: t('1:26.59'), AAA: t('1:22.29'), AAAA: t('1:17.99') },
   '50 Breast': { B: t('1:00.29'), BB: t('53.79'), A: t('47.29'), AA: t('45.09'), AAA: t('42.99'), AAAA: t('40.79') },
   '100 Breast': { B: t('2:12.89'), BB: t('1:58.19'), A: t('1:43.39'), AA: t('1:38.49'), AAA: t('1:33.59'), AAAA: t('1:28.69') },
-  '50 Fly': { B: t('51.39'), BB: t('45.59'), A: t('39.79'), AA: t('37.89'), AAA: t('35.99'), AAAA: t('33.99') },
+  '50 Fly': { B: t('53.49'), BB: t('47.19'), A: t('40.89'), AA: t('38.79'), AAA: t('36.69'), AAAA: t('34.59') },
   '100 Fly': { B: t('2:08.89'), BB: t('1:52.09'), A: t('1:35.19'), AA: t('1:29.49'), AAA: t('1:23.89'), AAAA: t('1:18.29') },
-  '200 IM': { B: t('4:01.59'), BB: t('3:36.59'), A: t('3:11.69'), AA: t('3:03.39'), AAA: t('2:55.09'), AAAA: t('2:46.69') },
+  '100 IM': { B: t('1:55.19'), BB: t('1:42.99'), A: t('1:30.69'), AA: t('1:26.59'), AAA: t('1:22.49'), AAAA: t('1:18.39') },
+  '200 IM': { B: t('4:05.39'), BB: t('3:39.59'), A: t('3:13.89'), AA: t('3:05.29'), AAA: t('2:56.79'), AAAA: t('2:48.19') },
 };
 
 // SCM Standards for 11-12 Boys (OFFICIAL 2024-2028)
