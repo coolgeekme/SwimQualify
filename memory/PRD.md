@@ -64,7 +64,10 @@ Official USA Swimming 2024-2028 Motivational Time Standards
 
 ### P1 (Next)
 - [ ] Import meet results from files (CSV, Hy-Tek .hy3)
-- [ ] Verify Team Sharing works in production post-deploy
+- [x] Fix AI Research returning SCY times when LCM selected (course-specific event lists + improved prompts)
+- [x] Fix Claude PDF extraction overriding good Perplexity results with empty data
+- [x] Fix production data visibility (removed mock fallbacks, added collection auto-migration, added /api/debug/collections)
+- [ ] Verify production times visible after deploy (user needs to redeploy and check /api/debug/collections)
 
 ### P2 (Future)
 - [ ] Swimmer percentile rank vs national swimmers

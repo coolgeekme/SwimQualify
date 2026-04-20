@@ -579,6 +579,14 @@ async def research_standards(req: ResearchStandardsRequest):
         gender_display = "Girls/Women"
         gender_terms = "Girls OR Women"
     
+    # Build course-specific event list
+    if req.course == "SCY":
+        event_list = "50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM"
+    elif req.course == "LCM":
+        event_list = "50 Free, 100 Free, 200 Free, 400 Free, 800 Free, 1500 Free, 50 Back, 100 Back, 200 Back, 50 Breast, 100 Breast, 200 Breast, 50 Fly, 100 Fly, 200 Fly, 200 IM, 400 IM"
+    else:  # SCM
+        event_list = "50 Free, 100 Free, 200 Free, 400 Free, 800 Free, 1500 Free, 50 Back, 100 Back, 200 Back, 50 Breast, 100 Breast, 200 Breast, 50 Fly, 100 Fly, 200 Fly, 100 IM, 200 IM, 400 IM"
+    
     async with httpx.AsyncClient() as client:
         # VERIFICATION METHOD 1: Primary search with Perplexity
         response = await client.post(
@@ -587,19 +595,24 @@ async def research_standards(req: ResearchStandardsRequest):
             json={
                 "model": "sonar",
                 "messages": [
-                    {"role": "system", "content": """You extract EXACT qualifying times from official USA Swimming LSC PDF documents.
+                    {"role": "system", "content": f"""You extract EXACT qualifying times from official USA Swimming LSC PDF documents.
 Rules:
 1. Boys/Men and Girls/Women are interchangeable terms in swimming
 2. State times are ALWAYS faster (smaller numbers) than Regional times  
 3. Return valid JSON array only, no markdown code blocks
-4. Copy times EXACTLY as they appear in official documents"""},
-                    {"role": "user", "content": f"""Find the {season_description} {req.stateLocation} official qualifying times.
+4. Copy times EXACTLY as they appear in official documents
+5. CRITICAL: You are looking for {course_description} times ONLY. Do NOT return SCY times when asked for LCM or SCM."""},
+                    {"role": "user", "content": f"""Find the {season_description} {req.stateLocation} official {req.course} qualifying times.
+
+IMPORTANT: I need {course_description} times ONLY. Not SCY. Not any other course type.
 
 Age Group: {req.ageGroup} {gender_terms} (also check "{req.ageGroup} {'Men' if req.gender == 'M' else 'Women'}")
 Course: {course_description}
 
-Look for the official PDF time standards document. Extract EXACT times for these events:
-50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM
+Look for the official {req.course} PDF time standards document for {req.stateLocation}. Extract EXACT times for these {req.course} events:
+{event_list}
+
+Note: {req.course} times are measured in {'yards' if req.course == 'SCY' else 'meters'}. {'LCM times are typically slower than SCY times for the same distance.' if req.course == 'LCM' else 'SCM times are typically slightly slower than SCY times for the same distance.' if req.course == 'SCM' else ''}
 
 Return JSON array:
 [{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"exact time","stateTimeStr":"exact time","source":"document name"}}]"""}
@@ -701,20 +714,18 @@ Return JSON array:
                         prompt_text = f"""You are extracting EXACT qualifying times from this official USA Swimming time standards PDF.
 
 SEARCH FOR THIS EXACT ROW: {req.ageGroup} {gender_term} (may also appear as "{req.ageGroup} {alt_gender}")
-COURSE TYPE: {req.course} (SCY = Short Course Yards, SCM = Short Course Meters, LCM = Long Course Meters)
+COURSE TYPE: {req.course} ({course_description})
 
 CRITICAL INSTRUCTIONS:
 1. Find the EXACT row for {req.ageGroup} {gender_term} or {req.ageGroup} {alt_gender}
-2. Copy the EXACT numbers shown - do NOT round, estimate, or modify
-3. The document has columns for different cut levels (State/Champs vs Regional/JO)
-4. State/Champs times are FASTER (smaller numbers) than Regional times
+2. Make sure you are reading from the {req.course} section of the document, NOT SCY
+3. Copy the EXACT numbers shown - do NOT round, estimate, or modify
+4. The document has columns for different cut levels (State/Champs vs Regional/JO)
+5. State/Champs times are FASTER (smaller numbers) than Regional times
+6. {req.course} times are in {'yards' if req.course == 'SCY' else 'meters'}
 
-Extract times for these events if present:
-- 50 Free, 100 Free, 200 Free, 500 Free
-- 50 Back, 100 Back
-- 50 Breast, 100 Breast  
-- 50 Fly, 100 Fly
-- 100 IM, 200 IM
+Extract times for these {req.course} events if present:
+{event_list}
 
 Return ONLY a JSON array in this exact format:
 [{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"EXACT time from Regional column","stateTimeStr":"EXACT time from State column"}}]
@@ -746,15 +757,19 @@ Return ONLY the JSON array, no explanation."""
                         if vision_json_match:
                             try:
                                 pdf_results = json.loads(vision_json_match.group(0))
-                                if pdf_results and len(pdf_results) > 0:
-                                    print(f"✓ Successfully extracted {len(pdf_results)} events from PDF via Claude")
-                                    # Use PDF results - they're more accurate
-                                    for r in pdf_results:
+                                # Only use PDF results if they're better than Perplexity results
+                                # (have actual times, not just N/A)
+                                valid_pdf_results = [r for r in pdf_results if r.get('regionalTimeStr', 'N/A') != 'N/A' or r.get('stateTimeStr', 'N/A') != 'N/A']
+                                if valid_pdf_results and len(valid_pdf_results) >= 3:
+                                    print(f"PDF extraction returned {len(valid_pdf_results)} valid results, using them over Perplexity")
+                                    for r in valid_pdf_results:
                                         r['ageGroup'] = req.ageGroup
                                         r['gender'] = req.gender
                                         r['course'] = req.course
                                         r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
-                                    results = pdf_results
+                                    results = valid_pdf_results
+                                else:
+                                    print(f"PDF extraction returned {len(valid_pdf_results)} valid results (< 3), keeping Perplexity results ({len(results)} items)")
                             except Exception as e:
                                 print(f"Failed to parse Claude extraction: {e}")
                 except Exception as e:
