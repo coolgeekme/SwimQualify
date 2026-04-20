@@ -1807,8 +1807,18 @@ const App: React.FC = () => {
       const aTime = aBestEntry?.timeSeconds;
       const bTime = bBestEntry?.timeSeconds;
       
-      const aStandards = standards.filter(s => s.eventId === a.id && s.gender === currentAthlete.gender && s.ageGroup === a.ageGroup);
-      const bStandards = standards.filter(s => s.eventId === b.id && s.gender === currentAthlete.gender && s.ageGroup === b.ageGroup);
+      const getStandardsForEvent = (ev: Event) => {
+        let matched = standards.filter(s => s.eventId === ev.id && s.gender === currentAthlete.gender && s.ageGroup === ev.ageGroup);
+        if (matched.length === 0) {
+          matched = standards.filter(s => {
+            const sEvent = events.find(e => e.id === s.eventId);
+            return sEvent && sEvent.name === ev.name && sEvent.course === ev.course && s.gender === currentAthlete.gender && s.ageGroup === ev.ageGroup;
+          });
+        }
+        return matched;
+      };
+      const aStandards = getStandardsForEvent(a);
+      const bStandards = getStandardsForEvent(b);
       
       const aStateCut = aStandards.find(s => s.region === 'State')?.cutTimeSeconds;
       const aRegionalCut = aStandards.find(s => s.region === 'Regional')?.cutTimeSeconds;
@@ -1971,7 +1981,18 @@ const App: React.FC = () => {
                 <DashboardCard 
                   event={event} 
                   bestTime={getBestTime(event.id, currentAthlete.id)} 
-                  standards={standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup)} 
+                  standards={(() => {
+                    // Primary: match by eventId
+                    let matched = standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup);
+                    // Fallback: match by event name + course if no ID match found
+                    if (matched.length === 0) {
+                      matched = standards.filter(s => {
+                        const sEvent = events.find(e => e.id === s.eventId);
+                        return sEvent && sEvent.name === event.name && sEvent.course === event.course && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup;
+                      });
+                    }
+                    return matched;
+                  })()} 
                   athleteGender={currentAthlete.gender} 
                   onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }}
                   onEditStandard={handleEditStandard}
