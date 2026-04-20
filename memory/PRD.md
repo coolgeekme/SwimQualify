@@ -59,7 +59,8 @@ Official USA Swimming 2024-2028 Motivational Time Standards
 - [x] Enhanced event name normalizer for heat sheet scanning (handles Meet Mobile naming variations)
 - [x] Manual event mapping dropdown for unmatched scan results
 - [x] Search/filter on Dashboard (search by name, filter by stroke/course) - shows when >3 events
-- [x] Search/filter on Shared View (search swimmers and events)
+- [x] Verify SCM 10U data accuracy: Fixed Boys 50 Fly, added Boys 100 Fly/100 IM/200 IM, fixed Girls 200 IM, added Girls 100 IM
+- [x] Inline editable cut times: Click any Regional/State cut on dashboard cards to edit in-place (Save/Cancel/Enter/Escape)
 
 ### P1 (Next)
 - [ ] Import meet results from files (CSV, Hy-Tek .hy3)
