@@ -66,6 +66,9 @@ Official USA Swimming 2024-2028 Motivational Time Standards
 - [ ] Import meet results from files (CSV, Hy-Tek .hy3)
 - [x] Fix AI Research returning SCY times when LCM selected (course-specific event lists + improved prompts)
 - [x] Fix Claude PDF extraction overriding good Perplexity results with empty data
+- [x] Expand SCY event list to include 200 Back, 200 Breast, 25-yard events
+- [x] Send swimmer's actual event names to AI research (customEvents param)
+- [x] Claude now merges with Perplexity results instead of always replacing
 - [x] Fix production data visibility (removed mock fallbacks, added collection auto-migration, added /api/debug/collections)
 - [ ] Verify production times visible after deploy (user needs to redeploy and check /api/debug/collections)
 

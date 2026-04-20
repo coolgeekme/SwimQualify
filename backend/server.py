@@ -108,6 +108,7 @@ class ResearchStandardsRequest(BaseModel):
     stateLocation: str
     course: str
     season: str = "2026"
+    customEvents: Optional[List[str]] = None
 
 class DocumentAnalyzeRequest(BaseModel):
     imageData: str
@@ -580,8 +581,10 @@ async def research_standards(req: ResearchStandardsRequest):
         gender_terms = "Girls OR Women"
     
     # Build course-specific event list
-    if req.course == "SCY":
-        event_list = "50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 50 Breast, 100 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM"
+    if req.customEvents and len(req.customEvents) > 0:
+        event_list = ", ".join(req.customEvents)
+    elif req.course == "SCY":
+        event_list = "25 Free, 25 Back, 25 Fly, 25 Breast, 50 Free, 100 Free, 200 Free, 500 Free, 50 Back, 100 Back, 200 Back, 50 Breast, 100 Breast, 200 Breast, 50 Fly, 100 Fly, 100 IM, 200 IM"
     elif req.course == "LCM":
         event_list = "50 Free, 100 Free, 200 Free, 400 Free, 800 Free, 1500 Free, 50 Back, 100 Back, 200 Back, 50 Breast, 100 Breast, 200 Breast, 50 Fly, 100 Fly, 200 Fly, 200 IM, 400 IM"
     else:  # SCM
@@ -760,14 +763,28 @@ Return ONLY the JSON array, no explanation."""
                                 # Only use PDF results if they're better than Perplexity results
                                 # (have actual times, not just N/A)
                                 valid_pdf_results = [r for r in pdf_results if r.get('regionalTimeStr', 'N/A') != 'N/A' or r.get('stateTimeStr', 'N/A') != 'N/A']
-                                if valid_pdf_results and len(valid_pdf_results) >= 3:
-                                    print(f"PDF extraction returned {len(valid_pdf_results)} valid results, using them over Perplexity")
+                                if valid_pdf_results and len(valid_pdf_results) > len(results):
+                                    print(f"PDF extraction returned {len(valid_pdf_results)} valid results (more than Perplexity's {len(results)}), using them")
                                     for r in valid_pdf_results:
                                         r['ageGroup'] = req.ageGroup
                                         r['gender'] = req.gender
                                         r['course'] = req.course
                                         r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
                                     results = valid_pdf_results
+                                elif valid_pdf_results and len(valid_pdf_results) >= 3:
+                                    # Claude found fewer but still valid — merge: keep Perplexity results and add any new events from Claude
+                                    existing_names = {r.get('name', '').lower() for r in results}
+                                    new_from_claude = [r for r in valid_pdf_results if r.get('name', '').lower() not in existing_names]
+                                    if new_from_claude:
+                                        for r in new_from_claude:
+                                            r['ageGroup'] = req.ageGroup
+                                            r['gender'] = req.gender
+                                            r['course'] = req.course
+                                            r['source'] = f"Extracted from {target_pdf.split('/')[-1]}"
+                                        results.extend(new_from_claude)
+                                        print(f"Merged {len(new_from_claude)} new events from Claude into {len(results)} total")
+                                    else:
+                                        print(f"Claude had {len(valid_pdf_results)} results but no new events, keeping Perplexity's {len(results)}")
                                 else:
                                     print(f"PDF extraction returned {len(valid_pdf_results)} valid results (< 3), keeping Perplexity results ({len(results)} items)")
                             except Exception as e:

@@ -425,6 +425,15 @@ const App: React.FC = () => {
     setResearchResults([]);
     setGroundingLinks([]);
     try {
+      // Collect unique event names from the swimmer's current events to include in research
+      const searchCourse = formData.get('course') as string;
+      const searchAgeGroup = formData.get('ageGroup') as string;
+      const swimmerEventNames = [...new Set(
+        events
+          .filter(ev => ev.course === searchCourse || ev.ageGroup === searchAgeGroup)
+          .map(ev => ev.name)
+      )];
+
       const response = await fetch('/api/ai/research-standards', {
         method: 'POST',
         headers: { 
@@ -436,7 +445,8 @@ const App: React.FC = () => {
           gender: formData.get('gender'),
           stateLocation: formData.get('stateLocation'),
           course: formData.get('course'),
-          season: formData.get('season')
+          season: formData.get('season'),
+          customEvents: swimmerEventNames.length > 0 ? swimmerEventNames : undefined
         })
       });
 
