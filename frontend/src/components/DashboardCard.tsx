@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Event, TimeEntry, QualifyingStandard } from '../types';
 import { formatTime, parseTime } from '../utils/time';
 import { getAchievementLevel, getLevelColor, getNextLevel, getEventStandards, formatTimeFromSeconds } from '../utils/motivationalTimes';
-import { Trophy, TrendingUp, ChevronRight, Star, CheckCircle2, Zap, Edit3, X, Save } from 'lucide-react';
+import { Trophy, TrendingUp, ChevronRight, Star, CheckCircle2, Zap, Edit3, X, Save, AlertCircle } from 'lucide-react';
 
 interface Props {
   event: Event;
@@ -25,12 +25,19 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
   // Get verification from standards data (auto-set during research)
   const autoVerification = regionalCut?.verificationScore || stateCut?.verificationScore;
   const autoConfidence = regionalCut?.verificationConfidence || stateCut?.verificationConfidence;
+  const hasCuts = !!(regionalCut || stateCut);
+  
+  // Always show confidence for events with cuts
   const displayVerification = verification || (autoVerification ? { 
     overallScore: autoVerification, 
     confidence: autoConfidence || 'medium',
     regionalScore: regionalCut?.verificationScore || '-',
     stateScore: stateCut?.verificationScore || '-',
-    sources: []
+  } : hasCuts ? {
+    overallScore: 'unverified',
+    confidence: 'none' as string,
+    regionalScore: '-',
+    stateScore: '-',
   } : null);
 
   const qualifiedRegional = bestTime && regionalCut && bestTime.timeSeconds <= regionalCut.cutTimeSeconds;
@@ -240,21 +247,31 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
       <div className="space-y-2 pt-3 border-t border-white/5">
         {renderCutLine('Regional Cut', 'regional', regionalCut, !!qualifiedRegional, regionalGap)}
         {renderCutLine('State Cut', 'state', stateCut, !!qualifiedState, stateGap)}
-        {/* Verification Badge - only shows if verification data exists */}
+        {/* Verification Badge - shows for all events with cuts */}
         {displayVerification && (regionalCut || stateCut) && (
           <div data-testid={`verification-badge-${event.id}`} className={`flex items-center justify-between mt-2 px-2 py-1.5 rounded-lg text-[9px] font-bold uppercase ${
-            displayVerification.confidence === 'high' ? 'bg-green-500/10 text-green-400' :
-            displayVerification.confidence === 'medium' ? 'bg-amber-500/10 text-amber-400' :
-            'bg-red-500/10 text-red-400'
+            displayVerification.confidence === 'high' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+            displayVerification.confidence === 'medium' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+            displayVerification.confidence === 'low' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+            'bg-slate-800/50 text-slate-500 border border-slate-700/30'
           }`}>
-            <div className="flex items-center space-x-1.5">
-              <CheckCircle2 className="w-3 h-3" />
-              <span>Verified: {displayVerification.overallScore}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-[8px]">
-              <span>Reg: {displayVerification.regionalScore}</span>
-              <span>State: {displayVerification.stateScore}</span>
-            </div>
+            {displayVerification.confidence === 'none' ? (
+              <div className="flex items-center space-x-1.5">
+                <AlertCircle className="w-3 h-3" />
+                <span>Unverified — Re-research to verify</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center space-x-1.5">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>{displayVerification.confidence === 'high' ? 'Confirmed' : displayVerification.confidence === 'medium' ? 'Partially Verified' : 'Needs Review'}: {displayVerification.overallScore}</span>
+                </div>
+                <div className="flex items-center space-x-2 text-[8px] opacity-70">
+                  <span>Reg: {displayVerification.regionalScore}</span>
+                  <span>State: {displayVerification.stateScore}</span>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
