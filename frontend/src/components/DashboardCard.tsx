@@ -12,9 +12,10 @@ interface Props {
   onClick: () => void;
   onEditStandard?: (standardId: string, newTime: number) => void;
   onCreateStandard?: (region: 'Regional' | 'State', cutTimeSeconds: number) => void;
+  verification?: { overallScore: string; confidence: string; regionalScore: string; stateScore: string; sources: any[] } | null;
 }
 
-const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGender, onClick, onEditStandard, onCreateStandard }) => {
+const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGender, onClick, onEditStandard, onCreateStandard, verification }) => {
   const [editingCut, setEditingCut] = useState<string | null>(null); // 'regional' | 'state' | null
   const [editValue, setEditValue] = useState('');
 
@@ -228,6 +229,23 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
       <div className="space-y-2 pt-3 border-t border-white/5">
         {renderCutLine('Regional Cut', 'regional', regionalCut, !!qualifiedRegional, regionalGap)}
         {renderCutLine('State Cut', 'state', stateCut, !!qualifiedState, stateGap)}
+        {/* Verification Badge */}
+        {verification && (
+          <div data-testid={`verification-badge-${event.id}`} className={`flex items-center justify-between mt-2 px-2 py-1.5 rounded-lg text-[9px] font-bold uppercase ${
+            verification.confidence === 'high' ? 'bg-green-500/10 text-green-400' :
+            verification.confidence === 'medium' ? 'bg-amber-500/10 text-amber-400' :
+            'bg-red-500/10 text-red-400'
+          }`}>
+            <div className="flex items-center space-x-1.5">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Verified: {verification.overallScore}</span>
+            </div>
+            <div className="flex items-center space-x-2 text-[8px]">
+              <span>Reg: {verification.regionalScore}</span>
+              <span>State: {verification.stateScore}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Details Link */}

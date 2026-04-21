@@ -69,6 +69,9 @@ Official USA Swimming 2024-2028 Motivational Time Standards
 - [x] Expand SCY event list to include 200 Back, 200 Breast, 25-yard events
 - [x] Send swimmer's actual event names to AI research (customEvents param)
 - [x] Claude now merges with Perplexity results instead of always replacing
+- [x] Multi-source verification system (Perplexity + Claude + cross-reference), shows 0/3 to 3/3 confidence per event
+- [x] Auto-verify after Apply All + manual "Verify Sources" button on dashboard
+- [x] Course type badges (SCY/LCM/SCM) on event selection, shared view, and dashboard
 - [x] Fix production data visibility (removed mock fallbacks, added collection auto-migration, added /api/debug/collections)
 - [ ] Verify production times visible after deploy (user needs to redeploy and check /api/debug/collections)
 

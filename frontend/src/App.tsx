@@ -213,6 +213,10 @@ const App: React.FC = () => {
   const [eventCourseFilter, setEventCourseFilter] = useState<string>('all');
   const [eventSortBy, setEventSortBy] = useState<string>('qualification');
   const [sharedSearchQuery, setSharedSearchQuery] = useState('');
+  
+  // Verification state - stores confidence scores per event
+  const [verificationResults, setVerificationResults] = useState<Record<string, any>>({});
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -603,7 +607,9 @@ const App: React.FC = () => {
       setResearchResults([]);
       setGroundingLinks([]);
       setUploadPreview(null);
-      alert(`Successfully applied ${applied} qualifying standards to the database!`);
+      alert(`Successfully applied ${applied} qualifying standards! Auto-verifying against sources...`);
+      // Auto-verify after applying research results
+      setTimeout(() => handleVerifyTimes(), 500);
     } catch (err) {
       console.error('Error applying results:', err);
       alert(`Applied ${applied} standards. Some may have failed.`);
@@ -940,6 +946,61 @@ const App: React.FC = () => {
       console.error('Failed to create standard:', err);
     }
   };
+
+
+  const handleVerifyTimes = async (stateLocation?: string) => {
+    if (!currentAthlete || !currentUser) return;
+    setIsVerifying(true);
+    
+    try {
+      // Gather all events with standards for this swimmer
+      const swimmerEvents = events.filter(e => currentAthlete.selectedEventIds.includes(e.id));
+      const timesToVerify = swimmerEvents.map(e => {
+        const eventStandards = standards.filter(s => s.eventId === e.id && s.gender === currentAthlete.gender && s.ageGroup === e.ageGroup);
+        const regional = eventStandards.find(s => s.region === 'Regional');
+        const state = eventStandards.find(s => s.region === 'State');
+        return {
+          name: e.name,
+          eventId: e.id,
+          course: e.course,
+          ageGroup: e.ageGroup,
+          gender: currentAthlete.gender,
+          regionalTimeStr: regional ? formatTime(regional.cutTimeSeconds) : '',
+          stateTimeStr: state ? formatTime(state.cutTimeSeconds) : ''
+        };
+      }).filter(t => t.regionalTimeStr || t.stateTimeStr);
+      
+      if (timesToVerify.length === 0) {
+        alert('No cut times to verify. Research standards first.');
+        setIsVerifying(false);
+        return;
+      }
+      
+      const response = await fetch('/api/ai/verify-times', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
+        body: JSON.stringify({
+          times: timesToVerify,
+          stateLocation: stateLocation || 'USA Swimming',
+          season: '2025'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const resultMap: Record<string, any> = {};
+        for (const r of data.results) {
+          resultMap[r.eventId] = r;
+        }
+        setVerificationResults(resultMap);
+      }
+    } catch (err) {
+      console.error('Verification failed:', err);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
 
 
   const handleDeleteTime = async (timeId: string) => {
@@ -1911,9 +1972,44 @@ const App: React.FC = () => {
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Verify Times</span>
             </button>
+            <button
+              data-testid="verify-all-sources-btn"
+              onClick={() => handleVerifyTimes()}
+              disabled={isVerifying}
+              className={`flex items-center space-x-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors ${isVerifying ? 'text-slate-600' : 'text-green-400 hover:text-green-300'}`}
+            >
+              {isVerifying ? (
+                <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Checking...</span></>
+              ) : (
+                <><CheckCircle2 className="w-3.5 h-3.5" /><span>{Object.keys(verificationResults).length > 0 ? 'Re-verify' : 'Verify Sources'}</span></>
+              )}
+            </button>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length}{sortedEvents.length !== selectedEvents.length ? `/${selectedEvents.length}` : ''} Events</span>
           </div>
         </div>
+
+        {/* Verification Summary */}
+        {Object.keys(verificationResults).length > 0 && (
+          <div data-testid="verification-summary" className="glass-card p-3 rounded-xl flex items-center justify-between animate-fade-in" style={{ animationDelay: '0.22s' }}>
+            <div className="flex items-center space-x-3">
+              <CheckCircle2 className="w-4 h-4 text-green-400" />
+              <span className="text-xs font-bold text-white">Source Verification</span>
+            </div>
+            <div className="flex items-center space-x-3 text-[10px] font-bold">
+              {(() => {
+                const vals = Object.values(verificationResults) as any[];
+                const high = vals.filter(v => v.confidence === 'high').length;
+                const med = vals.filter(v => v.confidence === 'medium').length;
+                const low = vals.filter(v => v.confidence === 'low').length;
+                return (<>
+                  {high > 0 && <span className="text-green-400 bg-green-500/10 px-2 py-1 rounded">{high} confirmed</span>}
+                  {med > 0 && <span className="text-amber-400 bg-amber-500/10 px-2 py-1 rounded">{med} partial</span>}
+                  {low > 0 && <span className="text-red-400 bg-red-500/10 px-2 py-1 rounded">{low} review</span>}
+                </>);
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* Search & Filter Bar */}
         {selectedEvents.length > 3 && (
@@ -1997,6 +2093,7 @@ const App: React.FC = () => {
                   onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }}
                   onEditStandard={handleEditStandard}
                   onCreateStandard={(region, cutTime) => handleCreateStandard(event.id, event.ageGroup, currentAthlete.gender, event.course, region, cutTime)}
+                  verification={verificationResults[event.id] || null}
                 />
               </div>
             ))}
