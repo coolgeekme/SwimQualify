@@ -664,6 +664,9 @@ Return JSON array:
             except:
                 pass
         
+        # Save Perplexity results before Claude potentially replaces them
+        perplexity_raw_results = list(results)
+        
         if data.get("citations"):
             # Extract domain name for better display and find PDF URLs
             import re as regex
@@ -804,6 +807,77 @@ Return ONLY the JSON array, no explanation."""
         
         # VERIFICATION METHOD 2: Validate and fix times
         results = validate_and_fix_times(results)
+        
+        # STEP 3: Auto-verify by cross-referencing Perplexity vs Claude results
+        # Build lookups from both source sets
+        perplexity_by_name = {}
+        for r in perplexity_raw_results:
+            name_key = r.get('name', '').lower().strip()
+            if name_key:
+                perplexity_by_name[name_key] = r
+        
+        # Claude results = anything in 'results' that came from PDF extraction
+        # (results may have been replaced by Claude, or may still be Perplexity)
+        claude_by_name = {}
+        if results != perplexity_raw_results:
+            # Results were modified by Claude - the current results are from Claude (or merged)
+            for r in results:
+                name_key = r.get('name', '').lower().strip()
+                source = r.get('source', '')
+                if '.pdf' in source.lower() or 'extract' in source.lower():
+                    claude_by_name[name_key] = r
+        
+        def parse_time_to_secs(t):
+            if not t or t == 'N/A' or t == '':
+                return None
+            t = str(t).strip()
+            try:
+                if ':' in t:
+                    parts = t.split(':')
+                    return float(parts[0]) * 60 + float(parts[1])
+                return float(t)
+            except:
+                return None
+        
+        def times_close(t1, t2, tolerance=2.0):
+            s1 = parse_time_to_secs(t1)
+            s2 = parse_time_to_secs(t2)
+            if s1 is None or s2 is None:
+                return None  # Can't compare
+            return abs(s1 - s2) <= tolerance
+        
+        has_both_sources = len(perplexity_by_name) > 0 and len(claude_by_name) > 0
+        
+        for r in results:
+            name_key = r.get('name', '').lower().strip()
+            p_result = perplexity_by_name.get(name_key)
+            c_result = claude_by_name.get(name_key)
+            
+            if has_both_sources and p_result and c_result:
+                # Both sources had this event — check agreement
+                reg_match = times_close(p_result.get('regionalTimeStr'), c_result.get('regionalTimeStr'))
+                state_match = times_close(p_result.get('stateTimeStr'), c_result.get('stateTimeStr'))
+                
+                matches = 0
+                if reg_match is True: matches += 1
+                if state_match is True: matches += 1
+                
+                if matches == 2:
+                    r['verificationScore'] = '3/3'
+                    r['verificationConfidence'] = 'high'
+                elif matches == 1:
+                    r['verificationScore'] = '2/3'
+                    r['verificationConfidence'] = 'medium'
+                else:
+                    r['verificationScore'] = '1/3'
+                    r['verificationConfidence'] = 'low'
+            elif p_result or c_result:
+                # Only one source had this event
+                r['verificationScore'] = '1/1'
+                r['verificationConfidence'] = 'medium'
+            else:
+                r['verificationScore'] = '1/1'
+                r['verificationConfidence'] = 'medium'
         
         # Count validation issues
         validation_issues = sum(1 for r in results if not r.get('validated', True))

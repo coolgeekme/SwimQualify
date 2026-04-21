@@ -79,6 +79,8 @@ export interface QualifyingStandard {
   course: Course;
   cutTimeSeconds: number;
   season: string;
+  verificationScore?: string;  // e.g. "2/3", "3/3"
+  verificationConfidence?: 'high' | 'medium' | 'low';
 }
 
 export interface WeeklyCheckIn {

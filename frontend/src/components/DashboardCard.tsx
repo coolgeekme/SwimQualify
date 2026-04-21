@@ -21,6 +21,17 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
 
   const regionalCut = standards.find(s => s.region === 'Regional');
   const stateCut = standards.find(s => s.region === 'State');
+  
+  // Get verification from standards data (auto-set during research)
+  const autoVerification = regionalCut?.verificationScore || stateCut?.verificationScore;
+  const autoConfidence = regionalCut?.verificationConfidence || stateCut?.verificationConfidence;
+  const displayVerification = verification || (autoVerification ? { 
+    overallScore: autoVerification, 
+    confidence: autoConfidence || 'medium',
+    regionalScore: regionalCut?.verificationScore || '-',
+    stateScore: stateCut?.verificationScore || '-',
+    sources: []
+  } : null);
 
   const qualifiedRegional = bestTime && regionalCut && bestTime.timeSeconds <= regionalCut.cutTimeSeconds;
   const qualifiedState = bestTime && stateCut && bestTime.timeSeconds <= stateCut.cutTimeSeconds;
@@ -229,20 +240,20 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
       <div className="space-y-2 pt-3 border-t border-white/5">
         {renderCutLine('Regional Cut', 'regional', regionalCut, !!qualifiedRegional, regionalGap)}
         {renderCutLine('State Cut', 'state', stateCut, !!qualifiedState, stateGap)}
-        {/* Verification Badge */}
-        {verification && (
+        {/* Verification Badge - only shows if verification data exists */}
+        {displayVerification && (regionalCut || stateCut) && (
           <div data-testid={`verification-badge-${event.id}`} className={`flex items-center justify-between mt-2 px-2 py-1.5 rounded-lg text-[9px] font-bold uppercase ${
-            verification.confidence === 'high' ? 'bg-green-500/10 text-green-400' :
-            verification.confidence === 'medium' ? 'bg-amber-500/10 text-amber-400' :
+            displayVerification.confidence === 'high' ? 'bg-green-500/10 text-green-400' :
+            displayVerification.confidence === 'medium' ? 'bg-amber-500/10 text-amber-400' :
             'bg-red-500/10 text-red-400'
           }`}>
             <div className="flex items-center space-x-1.5">
               <CheckCircle2 className="w-3 h-3" />
-              <span>Verified: {verification.overallScore}</span>
+              <span>Verified: {displayVerification.overallScore}</span>
             </div>
             <div className="flex items-center space-x-2 text-[8px]">
-              <span>Reg: {verification.regionalScore}</span>
-              <span>State: {verification.stateScore}</span>
+              <span>Reg: {displayVerification.regionalScore}</span>
+              <span>State: {displayVerification.stateScore}</span>
             </div>
           </div>
         )}

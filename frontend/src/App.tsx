@@ -49,6 +49,8 @@ interface ResearchResult {
   warnings?: string[];
   regionalSeconds?: number;
   stateSeconds?: number;
+  verificationScore?: string;
+  verificationConfidence?: 'high' | 'medium' | 'low';
 }
 
 const STORAGE_KEYS = {
@@ -550,7 +552,9 @@ const App: React.FC = () => {
       newStandards.push({
         id: `s-reg-${Date.now()}-${Math.random()}`,
         eventId, region: 'Regional', ageGroup: ageVal, gender: genderVal, course: normalizedCourse,
-        cutTimeSeconds: parseTime(res.regionalTimeStr), season: seasonVal
+        cutTimeSeconds: parseTime(res.regionalTimeStr), season: seasonVal,
+        verificationScore: res.verificationScore || undefined,
+        verificationConfidence: res.verificationConfidence || undefined
       });
     }
 
@@ -558,7 +562,9 @@ const App: React.FC = () => {
       newStandards.push({
         id: `s-state-${Date.now()}-${Math.random()}`,
         eventId, region: 'State', ageGroup: ageVal, gender: genderVal, course: normalizedCourse,
-        cutTimeSeconds: parseTime(res.stateTimeStr), season: seasonVal
+        cutTimeSeconds: parseTime(res.stateTimeStr), season: seasonVal,
+        verificationScore: res.verificationScore || undefined,
+        verificationConfidence: res.verificationConfidence || undefined
       });
     }
 
@@ -607,9 +613,7 @@ const App: React.FC = () => {
       setResearchResults([]);
       setGroundingLinks([]);
       setUploadPreview(null);
-      alert(`Successfully applied ${applied} qualifying standards! Auto-verifying against sources...`);
-      // Auto-verify after applying research results
-      setTimeout(() => handleVerifyTimes(), 500);
+      alert(`Successfully applied ${applied} qualifying standards!`);
     } catch (err) {
       console.error('Error applying results:', err);
       alert(`Applied ${applied} standards. Some may have failed.`);
@@ -1972,44 +1976,33 @@ const App: React.FC = () => {
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Verify Times</span>
             </button>
-            <button
-              data-testid="verify-all-sources-btn"
-              onClick={() => handleVerifyTimes()}
-              disabled={isVerifying}
-              className={`flex items-center space-x-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors ${isVerifying ? 'text-slate-600' : 'text-green-400 hover:text-green-300'}`}
-            >
-              {isVerifying ? (
-                <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Checking...</span></>
-              ) : (
-                <><CheckCircle2 className="w-3.5 h-3.5" /><span>{Object.keys(verificationResults).length > 0 ? 'Re-verify' : 'Verify Sources'}</span></>
-              )}
-            </button>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length}{sortedEvents.length !== selectedEvents.length ? `/${selectedEvents.length}` : ''} Events</span>
           </div>
         </div>
 
         {/* Verification Summary */}
-        {Object.keys(verificationResults).length > 0 && (
-          <div data-testid="verification-summary" className="glass-card p-3 rounded-xl flex items-center justify-between animate-fade-in" style={{ animationDelay: '0.22s' }}>
-            <div className="flex items-center space-x-3">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              <span className="text-xs font-bold text-white">Source Verification</span>
+        {(() => {
+          const verifiedStandards = standards.filter(s => s.verificationScore && sortedEvents.some(e => e.id === s.eventId));
+          if (verifiedStandards.length === 0) return null;
+          const high = verifiedStandards.filter(s => s.verificationConfidence === 'high').length;
+          const med = verifiedStandards.filter(s => s.verificationConfidence === 'medium').length;
+          const low = verifiedStandards.filter(s => s.verificationConfidence === 'low').length;
+          // Dedupe by eventId (regional + state for same event share same score)
+          const uniqueEvents = [...new Set(verifiedStandards.map(s => s.eventId))].length;
+          return (
+            <div data-testid="verification-summary" className="glass-card p-3 rounded-xl flex items-center justify-between animate-fade-in" style={{ animationDelay: '0.22s' }}>
+              <div className="flex items-center space-x-3">
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+                <span className="text-xs font-bold text-white">Source Verification ({uniqueEvents} events)</span>
+              </div>
+              <div className="flex items-center space-x-3 text-[10px] font-bold">
+                {high > 0 && <span className="text-green-400 bg-green-500/10 px-2 py-1 rounded">{Math.ceil(high/2)} confirmed</span>}
+                {med > 0 && <span className="text-amber-400 bg-amber-500/10 px-2 py-1 rounded">{Math.ceil(med/2)} partial</span>}
+                {low > 0 && <span className="text-red-400 bg-red-500/10 px-2 py-1 rounded">{Math.ceil(low/2)} review</span>}
+              </div>
             </div>
-            <div className="flex items-center space-x-3 text-[10px] font-bold">
-              {(() => {
-                const vals = Object.values(verificationResults) as any[];
-                const high = vals.filter(v => v.confidence === 'high').length;
-                const med = vals.filter(v => v.confidence === 'medium').length;
-                const low = vals.filter(v => v.confidence === 'low').length;
-                return (<>
-                  {high > 0 && <span className="text-green-400 bg-green-500/10 px-2 py-1 rounded">{high} confirmed</span>}
-                  {med > 0 && <span className="text-amber-400 bg-amber-500/10 px-2 py-1 rounded">{med} partial</span>}
-                  {low > 0 && <span className="text-red-400 bg-red-500/10 px-2 py-1 rounded">{low} review</span>}
-                </>);
-              })()}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Search & Filter Bar */}
         {selectedEvents.length > 3 && (
@@ -2281,7 +2274,7 @@ const App: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
-                      <p className="text-[8px] text-slate-500">{researchResults.filter(r => r.validated).length} verified • {researchResults.filter(r => !r.validated).length} need review</p>
+                      <p className="text-[8px] text-slate-500">{researchResults.filter(r => r.verificationConfidence === 'high').length} confirmed • {researchResults.filter(r => r.verificationConfidence === 'medium').length} partial • {researchResults.filter(r => r.verificationConfidence === 'low' || !r.verificationConfidence).length} unverified</p>
                     </div>
                     <button onClick={handleApplyResults} disabled={isApplyingResults} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1 disabled:opacity-50">
                       {isApplyingResults ? <><RefreshCw className="w-3 h-3 animate-spin" /><span>Applying...</span></> : <><Save className="w-3 h-3" /><span>Apply All</span></>}
@@ -2349,6 +2342,14 @@ const App: React.FC = () => {
                         )}
                         {res.source && (
                           <p className="text-[8px] text-slate-500">Source: {res.source}</p>
+                        )}
+                        {res.verificationScore && (
+                          <div className={`flex items-center space-x-1.5 text-[9px] font-bold ${
+                            res.verificationConfidence === 'high' ? 'text-green-400' : res.verificationConfidence === 'medium' ? 'text-amber-400' : 'text-red-400'
+                          }`}>
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Sources: {res.verificationScore}</span>
+                          </div>
                         )}
                       </div>
                     ))}
