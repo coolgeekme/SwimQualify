@@ -2498,7 +2498,10 @@ const App: React.FC = () => {
                                   <Activity className="w-4 h-4 text-white" />
                                 </div>
                                 <div>
-                                  <p className="font-black text-sm text-slate-800">{event.name}</p>
+                                  <div className="flex items-center space-x-2">
+                                    <p className="font-black text-sm text-slate-800">{event.name}</p>
+                                    <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${event.course === 'SCY' ? 'bg-blue-100 text-blue-600' : event.course === 'LCM' ? 'bg-amber-100 text-amber-600' : 'bg-purple-100 text-purple-600'}`}>{event.course || 'SCY'}</span>
+                                  </div>
                                   <div className="flex items-center space-x-2 mt-1">
                                     {isStateQualified && (
                                       <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700">STATE QUALIFIED</span>
