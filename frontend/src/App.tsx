@@ -1535,7 +1535,7 @@ const App: React.FC = () => {
                     value={scanMeetDetails.meetName}
                     onChange={e => setScanMeetDetails(prev => ({ ...prev, meetName: e.target.value }))}
                     placeholder="e.g. Winter Championships"
-                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -1544,7 +1544,7 @@ const App: React.FC = () => {
                     type="date" 
                     value={scanMeetDetails.date}
                     onChange={e => setScanMeetDetails(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -1552,7 +1552,7 @@ const App: React.FC = () => {
                   <select 
                     value={scanMeetDetails.course}
                     onChange={e => setScanMeetDetails(prev => ({ ...prev, course: e.target.value }))}
-                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="SCY">SCY (Short Course Yards)</option>
                     <option value="SCM">SCM (Short Course Meters)</option>
