@@ -1209,47 +1209,100 @@ async def extract_heat_times(req: HeatSheetAnalyzeRequest):
     
     swimmer_context = f" Pay special attention to times for swimmer: {req.swimmerName}." if req.swimmerName else ""
     
-    # Standard event names used in the app
+    # Standard event names used in the app (all courses)
     standard_events = [
-        "50 Free", "100 Free", "200 Free", "500 Free",
+        "25 Free", "25 Back", "25 Fly", "25 Breast",
+        "50 Free", "100 Free", "200 Free", "400 Free", "500 Free", "800 Free", "1500 Free",
         "50 Back", "100 Back", "200 Back",
         "50 Breast", "100 Breast", "200 Breast",
         "50 Fly", "100 Fly", "200 Fly",
         "100 IM", "200 IM", "400 IM"
     ]
     
-    prompt = f"""Analyze this swim meet heat sheet or results image and extract ALL swim times visible.{swimmer_context}
+    prompt = f"""Analyze this swimming results image and extract ALL swim times visible.{swimmer_context}
 
-IMPORTANT: Extract EVERY time you can see in the image, not just one swimmer.
+This could be a heat sheet, Meet Mobile screenshot, swim meet results, or any swimming results format.
+
+IMPORTANT: Extract EVERY event and time you can see in the image.
 
 For event names, normalize them to match these standard formats:
 {', '.join(standard_events)}
 
-Common abbreviations to normalize:
-- "FR", "Free", "Freestyle" → use distance + "Free" (e.g., "50 Free")
-- "BK", "Back", "Backstroke" → use distance + "Back" (e.g., "100 Back")
-- "BR", "Breast", "Breaststroke" → use distance + "Breast" (e.g., "100 Breast")
-- "FL", "Fly", "Butterfly" → use distance + "Fly" (e.g., "50 Fly")
-- "IM", "I.M.", "Individual Medley" → use distance + "IM" (e.g., "200 IM")
+Common formats you might see:
+- Meet Mobile: "Boys 12&U 200 Meter Free" → "200 Free", "Boys 12&U 50 Meter Back" → "50 Back"
+- Heat sheets: Event number + distance + stroke
+- Results: Swimmer name, event, time, place
+
+Normalization rules:
+- "Meter" or "Yard" should be ignored for the event name (just use distance + stroke)
+- "Boys 12&U", "Girls 10&U", age group prefixes should be stripped from event name
+- "FR", "Free", "Freestyle" → "Free"
+- "BK", "Back", "Backstroke" → "Back"  
+- "BR", "Breast", "Breaststroke" → "Breast"
+- "FL", "Fly", "Butterfly" → "Fly"
+- "IM", "I.M.", "Individual Medley" → "IM"
 
 Return a JSON array with ALL times found:
 [{{
-  "swimmerName": "Full name from the sheet",
-  "eventName": "Normalized event name (e.g., '50 Free', '100 Back')",
-  "distance": 50 (number extracted from event),
+  "swimmerName": "Full name from the image",
+  "eventName": "Normalized event name (e.g., '200 Free', '50 Back', '100 Fly')",
+  "distance": 200 (number extracted from event),
   "stroke": "Freestyle" or "Backstroke" or "Breaststroke" or "Butterfly" or "Individual Medley",
-  "timeStr": "28.45" or "1:05.32" (exact time as shown),
-  "place": 1 (if shown, otherwise null),
-  "heat": 3 (if shown, otherwise null),
-  "lane": 4 (if shown, otherwise null)
+  "timeStr": "2:52.11" or "42.44" (exact time as shown),
+  "place": 10 (if shown, otherwise null),
+  "heat": null,
+  "lane": null
 }}]
 
 Critical instructions:
-1. Extract ALL swimmers' times, not just one person
-2. Normalize ALL event names to the standard format
-3. Include the full swimmer name as shown
+1. Extract EVERY time visible in the image
+2. Normalize ALL event names to the standard format (strip age group prefixes, "Meter"/"Yard")
+3. Include the swimmer name as shown
 4. Times format: SS.XX for under a minute, M:SS.XX for over a minute
-5. Return ONLY the raw JSON array, no other text or explanation"""
+5. Return ONLY the raw JSON array, no other text or markdown"""
+    
+    # Try Emergent LLM key with Claude first (supports vision), fall back to OpenAI
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+    
+    if EMERGENT_LLM_KEY:
+        try:
+            from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+            
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"heat-sheet-{req.swimmerName or 'scan'}",
+                system_message="You are an expert at reading swim meet results from screenshots. Extract all times accurately. Return JSON only."
+            ).with_model("anthropic", "claude-sonnet-4-20250514")
+            
+            image_content = ImageContent(image_base64=req.imageData)
+            user_message = UserMessage(text=prompt, file_contents=[image_content])
+            
+            text = await chat.send_message(user_message)
+            
+            print(f"Heat sheet extraction (Claude) response length: {len(text)}")
+            print(f"Heat sheet extraction preview: {text[:500]}")
+            
+            json_match = re.search(r'\[.*\]', text, re.DOTALL)
+            if json_match:
+                try:
+                    results = json.loads(json_match.group(0))
+                    for r in results:
+                        r['eventName'] = normalize_event_name(r.get('eventName', ''), r.get('distance', 0))
+                        r['stroke'] = normalize_stroke_name(r.get('stroke', ''))
+                    print(f"Extracted {len(results)} times from heat sheet via Claude")
+                    return {"success": True, "times": results, "count": len(results)}
+                except json.JSONDecodeError as e:
+                    print(f"Claude JSON parse error: {e}")
+            else:
+                print(f"Claude response had no JSON array")
+        except Exception as e:
+            print(f"Claude heat sheet extraction failed: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback to OpenAI
+    if not OPENAI_API_KEY:
+        return {"success": False, "times": [], "error": "AI service unavailable. Please try again later."}
     
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -1271,14 +1324,15 @@ Critical instructions:
         
         if response.status_code != 200:
             error_detail = response.text
+            print(f"Heat sheet extraction failed: {response.status_code} - {error_detail[:500]}")
             raise HTTPException(status_code=500, detail=f"Analysis failed: {error_detail}")
         
         data = response.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         
         print(f"Heat sheet extraction response length: {len(text)}")
+        print(f"Heat sheet extraction preview: {text[:500]}")
         
-        import re, json
         json_match = re.search(r'\[.*\]', text, re.DOTALL)
         if json_match:
             try:
