@@ -882,9 +882,58 @@ Return ONLY the JSON array, no explanation."""
         # Count validation issues
         validation_issues = sum(1 for r in results if not r.get('validated', True))
         
+        # Build source links for the user to verify
+        lsc_websites = {
+            "Arizona": "https://www.azswimming.org",
+            "Southern California": "https://www.socalswim.org",
+            "Pacific": "https://www.pacswim.org",
+            "Florida": "https://www.floridaswimming.org",
+            "Georgia": "https://www.georgiaswimming.org",
+            "Texas": "https://www.texasswimming.org",
+            "Colorado": "https://www.coloradoswimming.org",
+            "New England": "https://www.neswim.com",
+            "Virginia": "https://www.virginiaswimming.org",
+            "Maryland": "https://www.mdswim.org",
+            "Ohio": "https://www.ohioswimming.org",
+            "Illinois": "https://www.ilswim.org",
+            "Michigan": "https://www.miswim.org",
+            "New Jersey": "https://www.njswim.org",
+            "North Carolina": "https://www.ncswim.org",
+        }
+        
+        # Find the LSC website based on state location
+        lsc_url = None
+        state_name = req.stateLocation.split('(')[0].strip() if '(' in req.stateLocation else req.stateLocation
+        for lsc_key, url in lsc_websites.items():
+            if lsc_key.lower() in state_name.lower():
+                lsc_url = url
+                break
+        
+        # If not found by name, try abbreviation
+        if not lsc_url and '(' in req.stateLocation:
+            abbrev = req.stateLocation.split('(')[1].replace(')', '').strip().lower()
+            abbrev_map = {"az": "https://www.azswimming.org", "ca": "https://www.socalswim.org", 
+                         "fl": "https://www.floridaswimming.org", "tx": "https://www.texasswimming.org",
+                         "co": "https://www.coloradoswimming.org", "ga": "https://www.georgiaswimming.org",
+                         "va": "https://www.virginiaswimming.org", "oh": "https://www.ohioswimming.org",
+                         "il": "https://www.ilswim.org", "mi": "https://www.miswim.org",
+                         "nj": "https://www.njswim.org", "nc": "https://www.ncswim.org",
+                         "md": "https://www.mdswim.org", "pa": "https://www.paswim.org",
+                         "ny": "https://www.metroswimming.org"}
+            lsc_url = abbrev_map.get(abbrev)
+        
+        source_links = {
+            "usaSwimming": "https://www.usaswimming.org/times/time-standards",
+            "lscWebsite": lsc_url,
+            "lscName": state_name,
+            "pdfSources": [c.get("uri") for c in citations if c.get("uri", "").endswith(".pdf")][:3],
+            "webSources": [c.get("uri") for c in citations if not c.get("uri", "").endswith(".pdf")][:5]
+        }
+        
         return {
             "results": results, 
             "citations": citations, 
+            "sourceLinks": source_links,
             "season": req.season,
             "validationIssues": validation_issues,
             "searchParams": {

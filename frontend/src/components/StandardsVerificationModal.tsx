@@ -52,6 +52,12 @@ const StandardsVerificationModal: React.FC<Props> = ({
             <p className="text-sm text-slate-400 mt-1">
               Official 2024-2028 Motivational Time Standards
             </p>
+            <div className="flex gap-2 mt-2">
+              <a href="https://www.usaswimming.org/times/time-standards" target="_blank" rel="noopener noreferrer"
+                 className="flex items-center space-x-1 text-[9px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 px-2 py-1 rounded transition-colors">
+                <ExternalLink className="w-3 h-3" /><span>USA Swimming Official</span>
+              </a>
+            </div>
           </div>
           <button 
             onClick={onClose}

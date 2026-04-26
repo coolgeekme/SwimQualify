@@ -181,6 +181,7 @@ const App: React.FC = () => {
   const [isApplyingResults, setIsApplyingResults] = useState(false);
   const [researchResults, setResearchResults] = useState<ResearchResult[]>([]);
   const [groundingLinks, setGroundingLinks] = useState<{title: string, uri: string}[]>([]);
+  const [sourceLinks, setSourceLinks] = useState<{usaSwimming: string, lscWebsite: string | null, lscName: string, pdfSources: string[], webSources: string[]} | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [uploadMimeType, setUploadMimeType] = useState<string>('image/png');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -479,6 +480,9 @@ const App: React.FC = () => {
 
       if (data.citations && data.citations.length > 0) {
         setGroundingLinks(data.citations);
+      }
+      if (data.sourceLinks) {
+        setSourceLinks(data.sourceLinks);
       }
     } catch (err: any) {
       console.error(err);
@@ -2231,24 +2235,47 @@ const App: React.FC = () => {
                 </button>
               </form>
 
-              {groundingLinks.length > 0 && (
-                <div className="bg-amber-900/20 p-4 rounded-xl border border-amber-600/30">
-                  <div className="flex items-start space-x-2 mb-3">
-                    <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              {(groundingLinks.length > 0 || sourceLinks) && (
+                <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 space-y-3">
+                  <div className="flex items-start space-x-2">
+                    <ExternalLink className="w-4 h-4 text-sky-400 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-[10px] font-black uppercase text-amber-400 mb-1">Verify Times Before Applying</p>
-                      <p className="text-[9px] text-amber-300/70">AI-researched times may contain errors. Click sources below to verify official cut times.</p>
+                      <p className="text-[10px] font-black uppercase text-sky-400 mb-1">Verify Sources — Click to confirm times</p>
+                      <p className="text-[9px] text-slate-400">Compare AI-researched times against official documents below.</p>
                     </div>
                   </div>
-                  <p className="text-[9px] font-black uppercase text-slate-500 mb-2">Official Sources (Click to Verify)</p>
+                  
+                  {/* Official Links */}
                   <div className="flex flex-wrap gap-2">
-                    {groundingLinks.map((link, i) => (
-                      <a key={i} href={link.uri} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded-lg transition-colors">
+                    <a href="https://www.usaswimming.org/times/time-standards" target="_blank" rel="noopener noreferrer" 
+                       className="flex items-center space-x-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 px-3 py-2 rounded-lg transition-colors border border-blue-500/20">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold">USA Swimming Motivational Times</span>
+                    </a>
+                    {sourceLinks?.lscWebsite && (
+                      <a href={sourceLinks.lscWebsite} target="_blank" rel="noopener noreferrer" 
+                         className="flex items-center space-x-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 hover:text-green-300 px-3 py-2 rounded-lg transition-colors border border-green-500/20">
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold">{link.title}</span>
+                        <span className="text-[10px] font-bold">{sourceLinks.lscName} Swimming (LSC)</span>
                       </a>
-                    ))}
+                    )}
                   </div>
+                  
+                  {/* PDF & Web Sources from Research */}
+                  {groundingLinks.length > 0 && (
+                    <div>
+                      <p className="text-[8px] font-bold uppercase text-slate-600 mb-1.5">Sources Used by AI</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {groundingLinks.slice(0, 5).map((link, i) => (
+                          <a key={i} href={link.uri} target="_blank" rel="noopener noreferrer" 
+                             className="flex items-center space-x-1 bg-slate-700/50 hover:bg-slate-700 text-slate-400 hover:text-slate-200 px-2 py-1 rounded transition-colors text-[9px] font-medium">
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            <span className="truncate max-w-[200px]">{link.title || link.uri.split('/').pop()}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2896,6 +2923,18 @@ const App: React.FC = () => {
             <div className="p-5 border-b border-white/10">
               <h3 className="text-lg font-black text-white uppercase">Confirm Changes</h3>
               <p className="text-xs text-slate-400 mt-1">Review what will be updated. Your swimmer times will NOT be affected.</p>
+              {sourceLinks && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <a href="https://www.usaswimming.org/times/time-standards" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-[9px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 px-2 py-1 rounded">
+                    <ExternalLink className="w-3 h-3" /><span>USA Swimming</span>
+                  </a>
+                  {sourceLinks.lscWebsite && (
+                    <a href={sourceLinks.lscWebsite} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-[9px] font-bold text-green-400 hover:text-green-300 bg-green-500/10 px-2 py-1 rounded">
+                      <ExternalLink className="w-3 h-3" /><span>{sourceLinks.lscName} LSC</span>
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
             <div className="p-5 overflow-y-auto max-h-[50vh] space-y-3">
               {researchResults.filter(r => r.regionalTimeStr || r.stateTimeStr).map((res, i) => {
