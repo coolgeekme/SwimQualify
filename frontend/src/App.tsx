@@ -219,6 +219,9 @@ const App: React.FC = () => {
   // Verification state - stores confidence scores per event
   const [verificationResults, setVerificationResults] = useState<Record<string, any>>({});
   const [isVerifying, setIsVerifying] = useState(false);
+  
+  // Apply confirmation state
+  const [showApplyConfirm, setShowApplyConfirm] = useState(false);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -2276,7 +2279,7 @@ const App: React.FC = () => {
                       <p className="text-[10px] font-black uppercase text-slate-400">Found {researchResults.length} Events</p>
                       <p className="text-[8px] text-slate-500">{researchResults.filter(r => r.verificationConfidence === 'high').length} confirmed • {researchResults.filter(r => r.verificationConfidence === 'medium').length} partial • {researchResults.filter(r => r.verificationConfidence === 'low' || !r.verificationConfidence).length} unverified</p>
                     </div>
-                    <button onClick={handleApplyResults} disabled={isApplyingResults} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1 disabled:opacity-50">
+                    <button onClick={() => setShowApplyConfirm(true)} disabled={isApplyingResults} className="bg-green-600 hover:bg-green-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg flex items-center space-x-1 disabled:opacity-50">
                       {isApplyingResults ? <><RefreshCw className="w-3 h-3 animate-spin" /><span>Applying...</span></> : <><Save className="w-3 h-3" /><span>Apply All</span></>}
                     </button>
                   </div>
@@ -2885,6 +2888,83 @@ const App: React.FC = () => {
         isOpen={showVerifyStandards}
         onClose={() => setShowVerifyStandards(false)}
       />
+
+      {/* Apply Confirmation Modal - Compare old vs new */}
+      {showApplyConfirm && researchResults.length > 0 && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowApplyConfirm(false)}>
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-white/10">
+              <h3 className="text-lg font-black text-white uppercase">Confirm Changes</h3>
+              <p className="text-xs text-slate-400 mt-1">Review what will be updated. Your swimmer times will NOT be affected.</p>
+            </div>
+            <div className="p-5 overflow-y-auto max-h-[50vh] space-y-3">
+              {researchResults.filter(r => r.regionalTimeStr || r.stateTimeStr).map((res, i) => {
+                const existingEvent = events.find(e => e.name === res.name && e.course === (res.course || explorerFilter.course));
+                const existingStds = existingEvent ? standards.filter(s => s.eventId === existingEvent.id) : [];
+                const oldRegional = existingStds.find(s => s.region === 'Regional');
+                const oldState = existingStds.find(s => s.region === 'State');
+                const hasChange = (res.regionalTimeStr && (!oldRegional || Math.abs(oldRegional.cutTimeSeconds - parseTime(res.regionalTimeStr)) > 0.01)) ||
+                                  (res.stateTimeStr && (!oldState || Math.abs(oldState.cutTimeSeconds - parseTime(res.stateTimeStr)) > 0.01));
+                
+                return (
+                  <div key={i} className={`p-3 rounded-xl border ${hasChange ? 'border-amber-500/30 bg-amber-900/10' : 'border-green-500/20 bg-green-900/10'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-black text-white">{res.name}</span>
+                      <div className="flex items-center space-x-2">
+                        {res.verificationScore && (
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            res.verificationConfidence === 'high' ? 'bg-green-500/20 text-green-400' : 
+                            res.verificationConfidence === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'
+                          }`}>{res.verificationScore}</span>
+                        )}
+                        <span className={`text-[9px] font-bold ${hasChange ? 'text-amber-400' : 'text-green-400'}`}>
+                          {hasChange ? 'UPDATING' : 'NO CHANGE'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-[10px]">
+                      <div>
+                        <span className="text-slate-500 font-bold uppercase">Regional</span>
+                        <div className="flex items-center space-x-2 mt-0.5">
+                          <span className="text-slate-400">{oldRegional ? formatTime(oldRegional.cutTimeSeconds) : '—'}</span>
+                          {res.regionalTimeStr && <span className="text-slate-600">→</span>}
+                          {res.regionalTimeStr && <span className="text-white font-bold">{res.regionalTimeStr}</span>}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-bold uppercase">State</span>
+                        <div className="flex items-center space-x-2 mt-0.5">
+                          <span className="text-slate-400">{oldState ? formatTime(oldState.cutTimeSeconds) : '—'}</span>
+                          {res.stateTimeStr && <span className="text-slate-600">→</span>}
+                          {res.stateTimeStr && <span className="text-white font-bold">{res.stateTimeStr}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="p-5 border-t border-white/10 flex items-center justify-between">
+              <p className="text-[10px] text-slate-500">
+                {researchResults.filter(r => r.regionalTimeStr || r.stateTimeStr).length} events • Only cut thresholds will change, swimmer times stay intact
+              </p>
+              <div className="flex items-center space-x-3">
+                <button onClick={() => setShowApplyConfirm(false)} className="text-slate-400 text-xs font-bold uppercase hover:text-white transition-colors px-3 py-2">
+                  Cancel
+                </button>
+                <button 
+                  data-testid="confirm-apply-btn"
+                  onClick={() => { setShowApplyConfirm(false); handleApplyResults(); }} 
+                  className="bg-green-600 hover:bg-green-500 text-white text-xs font-black uppercase px-4 py-2 rounded-lg flex items-center space-x-2"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Confirm & Apply</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
