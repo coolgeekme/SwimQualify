@@ -631,11 +631,13 @@ Return JSON array:
                 "temperature": 0,
                 "max_tokens": 4000
             },
-            timeout=60.0
+            timeout=45.0
         )
         
         if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Search failed")
+            error_text = response.text[:200]
+            print(f"Perplexity search failed: {response.status_code} - {error_text}")
+            raise HTTPException(status_code=500, detail=f"AI search service error ({response.status_code}). Please try again.")
         
         data = response.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -712,7 +714,7 @@ Return JSON array:
             if target_pdf:
                 print(f"Downloading PDF: {target_pdf}")
                 try:
-                    pdf_response = await client.get(target_pdf, timeout=30.0, follow_redirects=True)
+                    pdf_response = await client.get(target_pdf, timeout=15.0, follow_redirects=True)
                     if pdf_response.status_code == 200:
                         print(f"PDF downloaded, size: {len(pdf_response.content)} bytes")
                         

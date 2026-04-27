@@ -460,7 +460,10 @@ const App: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error('Search failed');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || `Search failed (${response.status})`);
+      }
       
       const data = await response.json();
       
@@ -486,7 +489,7 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      alert("Search failed. Please try again.");
+      alert(err.message || "Search failed. Please try again.");
     } finally {
       setIsResearching(false);
     }
