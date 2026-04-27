@@ -1608,6 +1608,168 @@ async def get_my_shares(request: Request):
     return {"shares": shares}
 
 # Health check
+
+@app.post("/api/ai/verify-all")
+async def verify_all_standards(x_user_session: str = Header(None)):
+    """Auto re-verify ALL existing standards by re-researching each unique age/gender/course/state combo."""
+    
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+    if not PERPLEXITY_API_KEY:
+        raise HTTPException(status_code=500, detail="Perplexity API key not configured")
+    
+    # Get all standards grouped by unique combos
+    all_standards = list(db.qualifyingStandards.find({}, {"_id": 0}))
+    if not all_standards:
+        return {"message": "No standards to verify", "verified": 0}
+    
+    # Get all events to map eventId -> event details
+    all_events = {e["id"]: e for e in db.events.find({}, {"_id": 0})}
+    
+    # Group standards by course + ageGroup + gender (we'll verify each group)
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for s in all_standards:
+        event = all_events.get(s.get("eventId"), {})
+        course = s.get("course") or event.get("course", "SCY")
+        age = s.get("ageGroup", "")
+        gender = s.get("gender", "")
+        key = f"{course}|{age}|{gender}"
+        groups[key].append(s)
+    
+    verified_count = 0
+    
+    for group_key, stds in groups.items():
+        course, age_group, gender = group_key.split("|")
+        if not age_group or not gender:
+            continue
+            
+        # Build list of events to verify
+        times_to_check = []
+        seen_events = set()
+        for s in stds:
+            event = all_events.get(s.get("eventId"), {})
+            event_name = event.get("name", "")
+            if not event_name or event_name in seen_events:
+                continue
+            seen_events.add(event_name)
+            
+            regional = next((st for st in stds if st.get("eventId") == s.get("eventId") and st.get("region") == "Regional"), None)
+            state = next((st for st in stds if st.get("eventId") == s.get("eventId") and st.get("region") == "State"), None)
+            
+            def format_time(secs):
+                if not secs: return ""
+                mins = int(secs) // 60
+                sec = secs - (mins * 60)
+                if mins > 0:
+                    return f"{mins}:{sec:05.2f}"
+                return f"{sec:.2f}"
+            
+            times_to_check.append({
+                "name": event_name,
+                "eventId": s.get("eventId"),
+                "course": course,
+                "ageGroup": age_group,
+                "gender": gender,
+                "regionalTimeStr": format_time(regional["cutTimeSeconds"]) if regional else "",
+                "stateTimeStr": format_time(state["cutTimeSeconds"]) if state else ""
+            })
+        
+        if not times_to_check:
+            continue
+        
+        # Query Perplexity for verification
+        gender_display = "Boys/Men" if gender == "M" else "Girls/Women"
+        event_list = ", ".join([t["name"] for t in times_to_check])
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.perplexity.ai/chat/completions",
+                    headers={"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "model": "sonar",
+                        "messages": [
+                            {"role": "system", "content": "You verify exact qualifying times from official USA Swimming LSC documents. Return JSON only."},
+                            {"role": "user", "content": f"""Verify these {course} qualifying times for {age_group} {gender_display}.
+
+For each event, find the OFFICIAL Regional and State cut times from official LSC documents.
+
+Events: {event_list}
+
+Return JSON array:
+[{{"name":"50 Free","verifiedRegional":"exact time or N/A","verifiedState":"exact time or N/A"}}]"""}
+                        ],
+                        "temperature": 0,
+                        "max_tokens": 3000
+                    },
+                    timeout=45.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    json_match = re.search(r'\[.*\]', text, re.DOTALL)
+                    
+                    verified_lookup = {}
+                    if json_match:
+                        try:
+                            verified_data = json.loads(json_match.group(0))
+                            for item in verified_data:
+                                name = item.get("name", "").lower().strip()
+                                verified_lookup[name] = item
+                        except:
+                            pass
+                    
+                    # Compare and update standards
+                    def parse_time_secs(t):
+                        if not t or t == "N/A" or t == "":
+                            return None
+                        t = str(t).strip()
+                        try:
+                            if ':' in t:
+                                parts = t.split(':')
+                                return float(parts[0]) * 60 + float(parts[1])
+                            return float(t)
+                        except:
+                            return None
+                    
+                    for tc in times_to_check:
+                        event_name_key = tc["name"].lower().strip()
+                        verified = verified_lookup.get(event_name_key)
+                        
+                        if verified:
+                            v_reg = parse_time_secs(verified.get("verifiedRegional"))
+                            v_state = parse_time_secs(verified.get("verifiedState"))
+                            c_reg = parse_time_secs(tc["regionalTimeStr"])
+                            c_state = parse_time_secs(tc["stateTimeStr"])
+                            
+                            reg_ok = v_reg and c_reg and abs(v_reg - c_reg) <= 2.0
+                            state_ok = v_state and c_state and abs(v_state - c_state) <= 2.0
+                            
+                            matches = 0
+                            if reg_ok: matches += 1
+                            if state_ok: matches += 1
+                            
+                            score = f"{matches + 1}/3"
+                            confidence = "high" if matches >= 2 else "medium" if matches >= 1 else "low"
+                        else:
+                            score = "1/1"
+                            confidence = "medium"
+                        
+                        # Update all standards for this event
+                        db.qualifyingStandards.update_many(
+                            {"eventId": tc["eventId"]},
+                            {"$set": {"verificationScore": score, "verificationConfidence": confidence}}
+                        )
+                        verified_count += 1
+                
+        except Exception as e:
+            print(f"Verify-all failed for {group_key}: {e}")
+            continue
+    
+    return {"message": f"Verified {verified_count} events across {len(groups)} groups", "verified": verified_count}
+
+
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}

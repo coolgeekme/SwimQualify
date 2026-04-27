@@ -1986,6 +1986,29 @@ const App: React.FC = () => {
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Verify Times</span>
             </button>
+            <button
+              data-testid="verify-all-btn"
+              onClick={async () => {
+                setIsVerifying(true);
+                try {
+                  const res = await fetch('/api/ai/verify-all', { method: 'POST', headers: getSessionHeaders(currentUser) });
+                  if (res.ok) {
+                    const data = await res.json();
+                    // Reload standards to get updated scores
+                    const stdRes = await fetch('/api/standards');
+                    if (stdRes.ok) setStandards(await stdRes.json());
+                    alert(`Verified ${data.verified} events!`);
+                  } else {
+                    alert('Verification failed. Please try again.');
+                  }
+                } catch { alert('Verification failed.'); }
+                finally { setIsVerifying(false); }
+              }}
+              disabled={isVerifying}
+              className={`flex items-center space-x-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors ${isVerifying ? 'text-slate-600' : 'text-green-400 hover:text-green-300'}`}
+            >
+              {isVerifying ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Verifying...</span></> : <><CheckCircle2 className="w-3.5 h-3.5" /><span>Verify All</span></>}
+            </button>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedEvents.length}{sortedEvents.length !== selectedEvents.length ? `/${selectedEvents.length}` : ''} Events</span>
           </div>
         </div>
