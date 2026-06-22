@@ -126,6 +126,15 @@ class VerifyTimesRequest(BaseModel):
     stateLocation: str
     season: str = "2026"
 
+class LscDocumentUpload(BaseModel):
+    stateLocation: str
+    course: str
+    season: str = "2025-2026"
+    pdfUrl: Optional[str] = None
+    pdfBase64: Optional[str] = None
+    fileName: Optional[str] = None
+
+
 
 def strip_mongo_id(doc):
     if doc is None:
@@ -1608,6 +1617,171 @@ async def get_my_shares(request: Request):
     return {"shares": shares}
 
 # Health check
+
+
+# Known LSC PDF URLs for auto-download
+LSC_PDF_URLS = {
+    "Arizona (AZ)": {
+        "SCY": [
+            "https://www.azswimming.org/azswimming/UserFiles/File/azsi-age-group-state-qualifying-time-standards-2025-2026_080831.pdf",
+            "https://www.gomotionapp.com/azfss/__doc__/210469_2_AZSI-Age-Group-Regional-Qualifying-Time-Standards-2025-2026%20(1).pdf"
+        ],
+        "LCM": [
+            "https://www.gomotionapp.com/azfss/__doc__/210469_2_AZSI-Age-Group-Regional-Qualifying-Time-Standards-2025-2026%20(1).pdf"
+        ]
+    }
+}
+
+@app.get("/api/lsc-documents")
+async def get_lsc_documents():
+    """Get all stored LSC documents"""
+    docs = list(db.lsc_documents.find({}, {"_id": 0, "pdfData": 0}))  # Exclude binary data
+    return docs
+
+@app.post("/api/lsc-documents/download")
+async def download_lsc_document(req: LscDocumentUpload):
+    """Download and store an LSC PDF from URL, then extract times using Claude"""
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="AI key not configured")
+    
+    pdf_data = None
+    pdf_url = req.pdfUrl
+    file_name = req.fileName or "unknown.pdf"
+    
+    # If URL provided, download it
+    if pdf_url:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(pdf_url, timeout=20.0, follow_redirects=True)
+                if resp.status_code == 200:
+                    pdf_data = resp.content
+                    file_name = pdf_url.split("/")[-1].split("?")[0]
+                    print(f"Downloaded PDF: {file_name} ({len(pdf_data)} bytes)")
+                else:
+                    raise HTTPException(status_code=400, detail=f"Failed to download PDF: {resp.status_code}")
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=400, detail="PDF download timed out")
+    # If base64 provided (user upload)
+    elif req.pdfBase64:
+        pdf_data = base64.b64decode(req.pdfBase64)
+        file_name = req.fileName or f"{req.stateLocation}_{req.course}.pdf"
+    else:
+        # Try auto-download from known URLs
+        known = LSC_PDF_URLS.get(req.stateLocation, {}).get(req.course, [])
+        for url in known:
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(url, timeout=20.0, follow_redirects=True)
+                    if resp.status_code == 200:
+                        pdf_data = resp.content
+                        pdf_url = url
+                        file_name = url.split("/")[-1].split("?")[0]
+                        print(f"Auto-downloaded PDF: {file_name} ({len(pdf_data)} bytes)")
+                        break
+            except:
+                continue
+        
+        if not pdf_data:
+            raise HTTPException(status_code=400, detail=f"No PDF URL provided and no known PDFs for {req.stateLocation} {req.course}")
+    
+    # Store the document
+    doc_id = f"lsc_{req.stateLocation.replace(' ', '_')}_{req.course}_{int(datetime.utcnow().timestamp())}"
+    
+    # Extract times from PDF using Claude
+    extracted_times = []
+    try:
+        pdf_b64 = base64.b64encode(pdf_data).decode()
+        
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
+        
+        # Extract for common age groups
+        age_groups = ["10 & Under", "11-12", "13-14", "15-16", "17-18"]
+        genders = [("M", "Boys/Men"), ("F", "Girls/Women")]
+        
+        for age_group in age_groups:
+            for gender_code, gender_display in genders:
+                chat = LlmChat(
+                    api_key=EMERGENT_LLM_KEY,
+                    session_id=f"lsc-extract-{doc_id}-{age_group}-{gender_code}",
+                    system_message="Extract exact qualifying times from swimming PDF documents. Return JSON only."
+                ).with_model("anthropic", "claude-sonnet-4-20250514")
+                
+                file_contents = [FileContent(content_type="application/pdf", file_content_base64=pdf_b64)]
+                
+                prompt = f"""Extract ALL {req.course} qualifying times from this PDF for: {age_group} {gender_display}
+
+Find the exact Regional and State qualifying times for every event listed.
+
+Return ONLY a JSON array:
+[{{"name":"50 Free","distance":50,"stroke":"Freestyle","regionalTimeStr":"exact time","stateTimeStr":"exact time"}}]
+
+Use "N/A" if a time is not found. Return ONLY the JSON array."""
+                
+                try:
+                    text = await chat.send_message(UserMessage(text=prompt, file_contents=file_contents))
+                    json_match = re.search(r'\[.*\]', text, re.DOTALL)
+                    if json_match:
+                        times = json.loads(json_match.group(0))
+                        for t in times:
+                            if t.get("regionalTimeStr", "N/A") != "N/A" or t.get("stateTimeStr", "N/A") != "N/A":
+                                t["ageGroup"] = age_group.replace("10 & Under", "10U")
+                                t["gender"] = gender_code
+                                t["course"] = req.course
+                                extracted_times.append(t)
+                        print(f"Extracted {len(times)} events for {age_group} {gender_display}")
+                except Exception as e:
+                    print(f"Extraction failed for {age_group} {gender_display}: {e}")
+                    continue
+    except Exception as e:
+        print(f"PDF extraction failed: {e}")
+    
+    # Store document + extracted times
+    db.lsc_documents.update_one(
+        {"stateLocation": req.stateLocation, "course": req.course},
+        {"$set": {
+            "id": doc_id,
+            "stateLocation": req.stateLocation,
+            "course": req.course,
+            "season": req.season,
+            "fileName": file_name,
+            "pdfUrl": pdf_url,
+            "pdfSize": len(pdf_data),
+            "extractedTimes": extracted_times,
+            "extractedCount": len(extracted_times),
+            "downloadedAt": datetime.utcnow().isoformat(),
+            "updatedAt": datetime.utcnow().isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {
+        "id": doc_id,
+        "fileName": file_name,
+        "stateLocation": req.stateLocation,
+        "course": req.course,
+        "extractedCount": len(extracted_times),
+        "extractedTimes": extracted_times
+    }
+
+@app.get("/api/lsc-documents/{state}/{course}/times")
+async def get_lsc_extracted_times(state: str, course: str):
+    """Get extracted times from a stored LSC document"""
+    doc = db.lsc_documents.find_one(
+        {"stateLocation": state, "course": course},
+        {"_id": 0, "pdfData": 0}
+    )
+    if not doc:
+        return {"found": False, "times": [], "message": f"No stored document for {state} {course}"}
+    return {
+        "found": True,
+        "fileName": doc.get("fileName"),
+        "extractedCount": doc.get("extractedCount", 0),
+        "times": doc.get("extractedTimes", []),
+        "downloadedAt": doc.get("downloadedAt"),
+        "season": doc.get("season")
+    }
+
 
 @app.post("/api/ai/verify-all")
 async def verify_all_standards(x_user_session: str = Header(None)):

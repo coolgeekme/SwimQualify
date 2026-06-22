@@ -4,7 +4,7 @@ import {
   Plus, ChevronLeft, ChevronRight, History, Target, AlertCircle, LogIn, 
   UserPlus, Layers, Mail, Lock, Search, Sparkles, ExternalLink, RefreshCw, 
   CheckCircle2, MapPin, Key, Upload, Camera, Trophy, Home, Users, Settings, LogOut,
-  Zap, Brain, Calendar, ShieldCheck, User as UserIcon, Heart, Trash2, Edit3, FileText, X, Filter, Ruler, Info, Save, CheckSquare, Square, Baby, Lightbulb, Activity, Clock, Award, Share2, Copy, Link, Eye
+  Zap, Brain, Calendar, ShieldCheck, User as UserIcon, Heart, Trash2, Edit3, FileText, X, Filter, Ruler, Info, Save, CheckSquare, Square, Baby, Lightbulb, Activity, Clock, Award, Share2, Copy, Link, Eye, Download
 } from 'lucide-react';
 import Layout from './components/Layout';
 import DashboardCard from './components/DashboardCard';
@@ -1974,6 +1974,31 @@ const App: React.FC = () => {
           </div>
         </div>
 
+        {/* Course Tabs */}
+        <div className="flex items-center space-x-1 animate-fade-in" style={{ animationDelay: '0.15s' }}>
+          {['all', 'SCY', 'LCM', 'SCM'].map(c => {
+            const count = c === 'all' ? selectedEvents.length : selectedEvents.filter(e => e.course === c).length;
+            if (c !== 'all' && count === 0) return null;
+            return (
+              <button
+                key={c}
+                data-testid={`course-tab-${c}`}
+                onClick={() => setEventCourseFilter(c)}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  eventCourseFilter === c
+                    ? c === 'SCY' ? 'bg-sky-500 text-white' 
+                    : c === 'LCM' ? 'bg-amber-500 text-white'
+                    : c === 'SCM' ? 'bg-purple-500 text-white'
+                    : 'bg-white/10 text-white'
+                    : 'bg-slate-800/60 text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                {c === 'all' ? 'All' : c} <span className="ml-1 opacity-70">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Section Title */}
         <div className="flex items-center justify-between animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <h3 className="font-display text-xl font-bold text-white uppercase tracking-wide">Season Best</h3>
@@ -2064,20 +2089,9 @@ const App: React.FC = () => {
               <option value="Butterfly">Fly</option>
               <option value="Individual Medley">IM</option>
             </select>
-            <select
-              data-testid="course-filter-select"
-              value={eventCourseFilter}
-              onChange={e => setEventCourseFilter(e.target.value)}
-              className="bg-slate-900/60 border border-white/10 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-300 uppercase outline-none focus:border-sky-500/50"
-            >
-              <option value="all">All Courses</option>
-              <option value="SCY">SCY</option>
-              <option value="LCM">LCM</option>
-              <option value="SCM">SCM</option>
-            </select>
-            {(eventSearchQuery || eventStrokeFilter !== 'all' || eventCourseFilter !== 'all') && (
+            {(eventSearchQuery || eventStrokeFilter !== 'all') && (
               <button
-                onClick={() => { setEventSearchQuery(''); setEventStrokeFilter('all'); setEventCourseFilter('all'); }}
+                onClick={() => { setEventSearchQuery(''); setEventStrokeFilter('all'); }}
                 className="text-[10px] font-bold text-red-400 uppercase px-2 py-2 hover:text-red-300"
               >
                 Clear
@@ -2096,10 +2110,27 @@ const App: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sortedEvents.map((event, index) => (
-              <div key={event.id} style={{ animationDelay: `${index * 0.1}s` }} className="animate-slide-up opacity-0" 
-                   onAnimationEnd={(e) => (e.currentTarget.style.opacity = '1')}>
+          <div className="space-y-6">
+            {(eventCourseFilter === 'all' ? ['SCY', 'LCM', 'SCM'] : [eventCourseFilter]).map(courseGroup => {
+              const courseEvents = sortedEvents.filter(e => e.course === courseGroup);
+              if (courseEvents.length === 0) return null;
+              return (
+                <div key={courseGroup}>
+                  {eventCourseFilter === 'all' && (
+                    <div className="flex items-center space-x-2 mb-3">
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${
+                        courseGroup === 'SCY' ? 'bg-sky-500/20 text-sky-400' : courseGroup === 'LCM' ? 'bg-amber-500/20 text-amber-400' : 'bg-purple-500/20 text-purple-400'
+                      }`}>{courseGroup}</span>
+                      <span className="text-[10px] text-slate-600 font-bold uppercase">
+                        {courseGroup === 'SCY' ? 'Short Course Yards' : courseGroup === 'LCM' ? 'Long Course Meters' : 'Short Course Meters'}
+                      </span>
+                      <span className="text-[9px] text-slate-700 font-bold">{courseEvents.length} events</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {courseEvents.map((event, index) => (
+                      <div key={event.id} style={{ animationDelay: `${index * 0.05}s` }} className="animate-slide-up opacity-0" 
+                           onAnimationEnd={(e) => (e.currentTarget.style.opacity = '1')}>
                 <DashboardCard 
                   event={event} 
                   bestTime={getBestTime(event.id, currentAthlete.id)} 
@@ -2123,6 +2154,10 @@ const App: React.FC = () => {
                 />
               </div>
             ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -2259,6 +2294,66 @@ const App: React.FC = () => {
                 <button type="submit" disabled={isResearching} className="w-full bg-blue-600 py-3 rounded-lg font-black uppercase text-[10px] flex items-center justify-center hover:bg-blue-500 transition-all disabled:opacity-50">
                   {isResearching ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Searching...</> : <><Search className="w-4 h-4 mr-2" /> Research Standards</>}
                 </button>
+                
+                {/* Upload/Download Official PDF */}
+                <div className="flex items-center space-x-2 mt-3">
+                  <button
+                    type="button"
+                    data-testid="download-lsc-pdf-btn"
+                    onClick={async () => {
+                      const form = document.querySelector('form') as HTMLFormElement;
+                      if (!form) return;
+                      const fd = new FormData(form);
+                      setIsResearching(true);
+                      try {
+                        const res = await fetch('/api/lsc-documents/download', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
+                          body: JSON.stringify({ stateLocation: fd.get('stateLocation'), course: fd.get('course'), season: fd.get('season') })
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          alert(`Downloaded "${data.fileName}" — extracted ${data.extractedCount} events. Use "Research Standards" to apply them.`);
+                        } else {
+                          const err = await res.json().catch(() => ({}));
+                          alert(err.detail || 'Failed to download PDF. Try uploading manually.');
+                        }
+                      } catch { alert('Download failed.'); }
+                      finally { setIsResearching(false); }
+                    }}
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-black uppercase text-xs px-4 py-3 rounded-xl flex items-center justify-center space-x-2 transition-all"
+                  >
+                    <Download className="w-4 h-4" /><span>Download Official PDF</span>
+                  </button>
+                  <label className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-black uppercase text-xs px-4 py-3 rounded-xl flex items-center justify-center space-x-2 transition-all cursor-pointer">
+                    <Upload className="w-4 h-4" /><span>Upload PDF</span>
+                    <input type="file" accept=".pdf" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const form = document.querySelector('form') as HTMLFormElement;
+                      if (!form) return;
+                      const fd = new FormData(form);
+                      const reader = new FileReader();
+                      reader.onload = async () => {
+                        const b64 = (reader.result as string).split(',')[1];
+                        setIsResearching(true);
+                        try {
+                          const res = await fetch('/api/lsc-documents/download', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-User-Session': JSON.stringify(currentUser) },
+                            body: JSON.stringify({ stateLocation: fd.get('stateLocation'), course: fd.get('course'), season: fd.get('season'), pdfBase64: b64, fileName: file.name })
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            alert(`Uploaded "${data.fileName}" — extracted ${data.extractedCount} events.`);
+                          } else { alert('Upload failed.'); }
+                        } catch { alert('Upload failed.'); }
+                        finally { setIsResearching(false); }
+                      };
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                </div>
               </form>
 
               {(groundingLinks.length > 0 || sourceLinks) && (
