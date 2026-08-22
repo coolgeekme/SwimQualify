@@ -238,7 +238,38 @@ async def get_events():
 
 @app.post("/api/events")
 async def create_event(event: EventCreate):
+    # Canonicalize so the same real event is never duplicated under different labels
+    # (e.g. "13U Boys 50 Fly SCY", "50 Butterfly", "50 Yard Fly" all -> "50 Fly").
+    dist = event.distance
+    if not dist:
+        m = re.search(r"\b(\d{2,4})\s*(?:[/-]\s*(\d{2,4}))?\b", event.name or "")
+        if m:
+            a = int(m.group(1))
+            b = int(m.group(2)) if m.group(2) else None
+            dist = (max(a, b) if normalize_course_str(event.course) == "SCY" else min(a, b)) if b else a
+    dist = dist or 50
+
+    short = _canonical_stroke_short(event.stroke or event.name)
+    canonical_name = normalize_event_name(event.name, dist, event.course)
+    canonical_stroke = _STROKE_FULL[short]
+    canonical_course = normalize_course_str(event.course)
+    canonical_age = normalize_age_group(event.ageGroup)
+
+    # Reuse an existing event that is the same real event (distance+stroke+course+age group)
+    candidates = list(db.events.find(
+        {"distance": dist, "course": canonical_course, "ageGroup": canonical_age}
+    ).limit(50))
+    for cand in candidates:
+        cand_stroke = cand.get("stroke") or cand.get("name", "")
+        if _canonical_stroke_short(cand_stroke) == short:
+            return strip_mongo_id(cand)
+
     event_dict = event.model_dump()
+    event_dict["name"] = canonical_name
+    event_dict["distance"] = dist
+    event_dict["stroke"] = canonical_stroke
+    event_dict["course"] = canonical_course
+    event_dict["ageGroup"] = canonical_age
     event_dict["id"] = event_dict.get("id") or f"e_{int(datetime.utcnow().timestamp() * 1000)}"
     event_dict["createdAt"] = datetime.utcnow()
     db.events.insert_one(event_dict)
@@ -1409,52 +1440,108 @@ Critical instructions:
                 return {"success": False, "times": [], "error": f"Failed to parse results: {str(e)}"}
         return {"success": False, "times": [], "error": "No times found in image"}
 
-def normalize_event_name(event_name: str, distance: int) -> str:
-    """Normalize event name to standard format used in app"""
-    if not event_name:
-        return f"{distance} Free" if distance else "Unknown Event"
-    
-    name_lower = event_name.lower().strip()
-    
-    # Extract distance if not provided
-    if not distance:
-        import re
-        dist_match = re.search(r'(\d+)', name_lower)
-        if dist_match:
-            distance = int(dist_match.group(1))
-    
-    # Determine stroke
-    stroke_abbrev = "Free"
-    if any(x in name_lower for x in ['back', 'bk', 'backstroke']):
-        stroke_abbrev = "Back"
-    elif any(x in name_lower for x in ['breast', 'br', 'breaststroke']):
-        stroke_abbrev = "Breast"
-    elif any(x in name_lower for x in ['fly', 'fl', 'butter']):
-        stroke_abbrev = "Fly"
-    elif any(x in name_lower for x in ['im', 'i.m', 'medley', 'individual']):
-        stroke_abbrev = "IM"
-    elif any(x in name_lower for x in ['free', 'fr', 'freestyle']):
-        stroke_abbrev = "Free"
-    
-    return f"{distance} {stroke_abbrev}" if distance else event_name
+def _canonical_stroke_short(text: str) -> str:
+    """Map any stroke token to a short canonical form: Free/Back/Breast/Fly/IM."""
+    s = (text or "").lower()
+    if any(x in s for x in ["im", "medley", "i.m", "individual"]):
+        return "IM"
+    if any(x in s for x in ["back", "bk"]):
+        return "Back"
+    if any(x in s for x in ["breast", "br"]):
+        return "Breast"
+    if any(x in s for x in ["fly", "fl", "butter"]):
+        return "Fly"
+    if any(x in s for x in ["free", "fr", "freestyle"]):
+        return "Free"
+    return "Free"
+
+
+_STROKE_FULL = {
+    "Free": "Freestyle",
+    "Back": "Backstroke",
+    "Breast": "Breaststroke",
+    "Fly": "Butterfly",
+    "IM": "Individual Medley",
+}
+
 
 def normalize_stroke_name(stroke: str) -> str:
-    """Normalize stroke name to full standard form"""
-    if not stroke:
-        return "Freestyle"
-    
-    stroke_lower = stroke.lower().strip()
-    
-    if any(x in stroke_lower for x in ['back', 'bk']):
-        return "Backstroke"
-    elif any(x in stroke_lower for x in ['breast', 'br']):
-        return "Breaststroke"
-    elif any(x in stroke_lower for x in ['fly', 'fl', 'butter']):
-        return "Butterfly"
-    elif any(x in stroke_lower for x in ['im', 'i.m', 'medley', 'individual']):
-        return "Individual Medley"
-    else:
-        return "Freestyle"
+    """Normalize a stroke string to the full standard form."""
+    return _STROKE_FULL.get(_canonical_stroke_short(stroke), "Freestyle")
+
+
+def normalize_course_str(course: str) -> str:
+    """Normalize a course string to SCY/SCM/LCM."""
+    s = (course or "").lower().strip()
+    if "scm" in s or "short course meter" in s or "25 meter" in s or "25m" in s:
+        return "SCM"
+    if "lcm" in s or "long course" in s or "50 meter" in s or "50m" in s:
+        return "LCM"
+    if "meter" in s:
+        return "LCM"  # bare "meters" defaults to LCM, matching the frontend
+    if "scy" in s or "yard" in s:
+        return "SCY"
+    return (course or "SCY").strip() or "SCY"
+
+
+def normalize_age_group(age_group: str) -> str:
+    """Normalize an age-group label to the app's canonical form."""
+    s = (age_group or "").strip()
+    low = s.lower()
+    if re.search(r"\b(?:8|10)\s*&?\s*(?:u|under)\b", low) or re.search(r"\b(?:8|10)\b", low):
+        return "10U"  # 8&U and 10&U both fold into the app's 10U bracket
+    if re.search(r"\b1[12]\s*[-&]\s*1[12]\b", low) or re.search(r"\b12\s*&?\s*(?:u|under)\b", low):
+        return "11-12"
+    if re.search(r"\b1[34]\s*[-&]\s*1[34]\b", low) or re.search(r"\b13\s*&?\s*(?:u|under)\b", low):
+        return "13-14"
+    if re.search(r"\b1[56]\s*[-&]\s*1[56]\b", low):
+        return "15-16"
+    if re.search(r"\b1[78]\s*[-&]\s*1[78]\b", low) or "senior" in low or "open" in low:
+        return "17-18"
+    return s
+
+
+def normalize_event_name(event_name: str, distance: int = 0, course: str = None) -> str:
+    """Normalize a raw meet event string to canonical '{distance} {Stroke}'.
+
+    Strips gender words (Boys/Girls/Men/Women), course tokens (Yard/Meter/SCY/SCM/LCM),
+    and age-group labels (12&U, 11-12, 13U, 13 & Under, ...). Handles combined distances
+    like '400/500 Free' by picking the course-appropriate distance.
+    """
+    if not event_name:
+        return f"{distance} Free" if distance else "Unknown Event"
+
+    name = str(event_name)
+
+    # 1. Strip gender words (and possessive forms)
+    for g in ("boys", "girls", "men", "women", "mixed"):
+        name = re.sub(rf"\b{g}'?s?\b", " ", name, flags=re.IGNORECASE)
+
+    # 2. Strip course tokens
+    for c in (
+        "short course yards", "long course meters", "short course meters",
+        "yard", "yards", "meter", "meters", "scy", "scm", "lcm",
+    ):
+        name = re.sub(rf"\b{c}\b", " ", name, flags=re.IGNORECASE)
+
+    # 3. Strip age-group labels
+    name = re.sub(r"\b\d{1,2}\s*[-&]\s*\d{1,2}\b", " ", name)                          # 11-12, 13-14
+    name = re.sub(r"\b\d{1,2}\s*&?\s*(?:u|under)\b", " ", name, flags=re.IGNORECASE)    # 12&U, 10U, 13 & under
+    name = re.sub(r"\b(?:senior|open)\b", " ", name, flags=re.IGNORECASE)
+
+    # 4. Extract distance if not supplied, handling combined '400/500'
+    if not distance:
+        m = re.search(r"\b(\d{2,4})\s*(?:[/-]\s*(\d{2,4}))?\b", name)
+        if m:
+            a = int(m.group(1))
+            b = int(m.group(2)) if m.group(2) else None
+            if b:
+                distance = max(a, b) if normalize_course_str(course) == "SCY" else min(a, b)
+            else:
+                distance = a
+
+    short = _canonical_stroke_short(name)
+    return f"{distance} {short}" if distance else event_name
 
 # ==================== TEAM SHARING ====================
 

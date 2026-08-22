@@ -509,14 +509,33 @@ const App: React.FC = () => {
       return Course.SCY; // Default to SCY
     };
 
+    const normalizeStroke = (s: string) => {
+      const l = (s || '').toLowerCase();
+      if (l.includes('back')) return 'Back';
+      if (l.includes('breast')) return 'Breast';
+      if (l.includes('fly') || l.includes('butter')) return 'Fly';
+      if (l.includes('im') || l.includes('medley')) return 'IM';
+      return 'Free';
+    };
+    const normalizeAgeGroup = (a: string) => {
+      const s = (a || '').trim().toLowerCase();
+      if (/(8|10)\s*&?\s*(u|under)/.test(s) || /^(8|10)$/.test(s)) return '10U';
+      if (/1[12]\s*[-&]\s*1[12]/.test(s) || /12\s*&?\s*(u|under)/.test(s)) return '11-12';
+      if (/1[34]\s*[-&]\s*1[34]/.test(s) || /13\s*&?\s*(u|under)/.test(s)) return '13-14';
+      if (/1[56]\s*[-&]\s*1[56]/.test(s)) return '15-16';
+      if (/1[78]\s*[-&]\s*1[78]/.test(s)) return '17-18';
+      return a;
+    };
+
     const normalizedCourse = normalizeCourse(res.course);
     const genderVal: 'M' | 'F' = (res.gender === 'Women' || res.gender === 'F' || res.gender === 'Girls' ? 'F' : 'M');
-    const ageVal = res.ageGroup || '11-12';
+    const ageVal = normalizeAgeGroup(res.ageGroup || currentAthlete?.ageGroup || '11-12');
     const seasonVal = res.season || '2026';
 
-    // Find or create event specific to this age group
+    // Find or create event specific to this age group — match by canonical identity, not raw name
     let existingEvent = events.find(e => 
-      e.name.toLowerCase() === res.name.toLowerCase() && 
+      e.distance === (res.distance || 50) &&
+      normalizeStroke(e.stroke) === normalizeStroke(res.stroke || res.name) &&
       e.course === normalizedCourse &&
       e.ageGroup === ageVal
     );
