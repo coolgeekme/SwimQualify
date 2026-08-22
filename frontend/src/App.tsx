@@ -89,11 +89,11 @@ const App: React.FC = () => {
       }
 
       try {
-        await fetch('/api/seed', { method: 'POST' });
+        await fetch('/api/seed', { method: 'POST', headers: getSessionHeaders(currentUser) });
 
         const [eventsRes, standardsRes, athletesRes, timesRes, usersRes] = await Promise.all([
-          fetch('/api/events'),
-          fetch('/api/standards'),
+          fetch('/api/events', { headers: getSessionHeaders(currentUser) }),
+          fetch('/api/standards', { headers: getSessionHeaders(currentUser) }),
           fetch('/api/athletes', { headers: getSessionHeaders(currentUser) }),
           fetch('/api/times', { headers: getSessionHeaders(currentUser) }),
           fetch('/api/auth/users')
@@ -2039,7 +2039,7 @@ const App: React.FC = () => {
                   if (res.ok) {
                     const data = await res.json();
                     // Reload standards to get updated scores
-                    const stdRes = await fetch('/api/standards');
+                    const stdRes = await fetch('/api/standards', { headers: getSessionHeaders(currentUser) });
                     if (stdRes.ok) setStandards(await stdRes.json());
                     alert(`Verified ${data.verified} events!`);
                   } else {

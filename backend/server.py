@@ -34,6 +34,28 @@ DB_NAME = os.environ.get("DB_NAME", "swimqualify")
 client = MongoClient(MONGO_URL)
 db = client[DB_NAME]
 
+
+def backfill_team_ids():
+    """One-time migration: stamp legacy records (no teamId) with their team."""
+    db.events.update_many({"teamId": {"$exists": False}}, {"$set": {"teamId": "team1"}})
+    db.qualifyingStandards.update_many({"teamId": {"$exists": False}}, {"$set": {"teamId": "team1"}})
+    legacy_times = list(db.timeEntries.find({"teamId": {"$exists": False}}, {"_id": 1, "athleteId": 1}))
+    for t in legacy_times:
+        team = "team1"
+        aid = t.get("athleteId")
+        if aid:
+            a = db.athletes.find_one({"id": aid})
+            team = (a or {}).get("teamId", "team1")
+        db.timeEntries.update_one({"_id": t["_id"]}, {"$set": {"teamId": team}})
+    db.times.update_many({"teamId": {"$exists": False}}, {"$set": {"teamId": "team1"}})
+
+
+try:
+    backfill_team_ids()
+except Exception as e:
+    print(f"WARN: teamId backfill skipped: {e}")
+
+
 # OpenAI config
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
@@ -53,6 +75,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     role: str = "swimmer"
+    teamId: Optional[str] = None
 
 class AthleteCreate(BaseModel):
     id: Optional[str] = None
@@ -152,6 +175,59 @@ def get_session(x_user_session: Optional[str] = Header(None)):
     except:
         return None
 
+
+def get_team_id(session) -> str:
+    """Extract the caller's team id, defaulting to legacy 'team1' when unknown."""
+    if not session:
+        return "team1"
+    return session.get("teamId") or "team1"
+
+
+# Canonical default SCY events seeded for every new team (age groups 10U + 11-12)
+DEFAULT_EVENT_NAMES = [
+    ("50 Free", 50, "Freestyle"),
+    ("100 Free", 100, "Freestyle"),
+    ("200 Free", 200, "Freestyle"),
+    ("500 Free", 500, "Freestyle"),
+    ("50 Back", 50, "Backstroke"),
+    ("100 Back", 100, "Backstroke"),
+    ("50 Breast", 50, "Breaststroke"),
+    ("100 Breast", 100, "Breaststroke"),
+    ("50 Fly", 50, "Butterfly"),
+    ("100 Fly", 100, "Butterfly"),
+    ("100 IM", 100, "Individual Medley"),
+    ("200 IM", 200, "Individual Medley"),
+]
+DEFAULT_AGE_GROUPS = ["10U", "11-12"]
+
+
+def seed_team(team_id: str) -> dict:
+    """Seed a team's default SCY events (idempotent)."""
+    if db.events.count_documents({"teamId": team_id}) > 0:
+        return {"message": "Team already seeded", "seeded": False}
+    created = 0
+    idx = 0
+    for ag in DEFAULT_AGE_GROUPS:
+        for name, dist, stroke in DEFAULT_EVENT_NAMES:
+            ev = {
+                "id": f"e_{team_id}_{idx}",
+                "name": name,
+                "distance": dist,
+                "stroke": stroke,
+                "course": "SCY",
+                "ageGroup": ag,
+                "teamId": team_id,
+                "createdAt": datetime.utcnow(),
+            }
+            idx += 1
+            try:
+                db.events.insert_one(ev)
+                created += 1
+            except Exception:
+                pass
+    return {"message": f"Seeded {created} events", "seeded": True}
+
+
 # User counter for IDs
 def get_next_user_id():
     last_user = db.users.find_one(sort=[("id", -1)])
@@ -165,16 +241,19 @@ async def register(req: RegisterRequest):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
     
     hashed = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt())
+    user_id = get_next_user_id()
+    team_id = (req.teamId or "").strip() or f"team_{user_id}"
     user = {
-        "id": get_next_user_id(),
+        "id": user_id,
         "name": req.name,
         "email": req.email.lower(),
         "password": hashed.decode(),
         "role": req.role,
-        "teamId": "team1",
+        "teamId": team_id,
         "createdAt": datetime.utcnow()
     }
     db.users.insert_one(user)
+    seed_team(team_id)
     return {"id": str(user["id"]), "name": user["name"], "email": user["email"], "role": user["role"], "teamId": user["teamId"]}
 
 @app.post("/api/auth/login")
@@ -186,7 +265,7 @@ async def login(req: LoginRequest):
     if not bcrypt.checkpw(req.password.encode(), user["password"].encode()):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    return {"id": str(user["id"]), "name": user["name"], "email": user["email"], "role": user["role"], "teamId": user["teamId"]}
+    return {"id": str(user["id"]), "name": user["name"], "email": user["email"], "role": user["role"], "teamId": user.get("teamId", "team1")}
 
 # Password Reset Endpoint
 class PasswordResetRequest(BaseModel):
@@ -232,12 +311,14 @@ async def get_users():
 
 # Events Endpoints
 @app.get("/api/events")
-async def get_events():
-    events = list(db.events.find({}).limit(500))
+async def get_events(x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
+    events = list(db.events.find({"teamId": team_id}).limit(500))
     return [strip_mongo_id(e) for e in events]
 
 @app.post("/api/events")
-async def create_event(event: EventCreate):
+async def create_event(event: EventCreate, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
     # Canonicalize so the same real event is never duplicated under different labels
     # (e.g. "13U Boys 50 Fly SCY", "50 Butterfly", "50 Yard Fly" all -> "50 Fly").
     dist = event.distance
@@ -260,7 +341,7 @@ async def create_event(event: EventCreate):
 
     # Reuse an existing event that is the same real event (distance+stroke+course+age group)
     candidates = list(db.events.find(
-        {"distance": dist, "course": canonical_course, "ageGroup": canonical_age}
+        {"distance": dist, "course": canonical_course, "ageGroup": canonical_age, "teamId": team_id}
     ).limit(50))
     for cand in candidates:
         cand_stroke = cand.get("stroke") or cand.get("name", "")
@@ -273,28 +354,31 @@ async def create_event(event: EventCreate):
     event_dict["stroke"] = canonical_stroke
     event_dict["course"] = canonical_course
     event_dict["ageGroup"] = canonical_age
+    event_dict["teamId"] = team_id
     event_dict["id"] = event_dict.get("id") or f"e_{int(datetime.utcnow().timestamp() * 1000)}"
     event_dict["createdAt"] = datetime.utcnow()
     db.events.insert_one(event_dict)
     return strip_mongo_id(event_dict)
 
 @app.delete("/api/events/{event_id}")
-async def delete_event(event_id: str):
-    result = db.events.delete_one({"id": event_id})
+async def delete_event(event_id: str, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
+    result = db.events.delete_one({"id": event_id, "teamId": team_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
     return {"success": True}
 
 
 @app.post("/api/events/dedupe")
-async def dedupe_events(dry_run: bool = False):
+async def dedupe_events(dry_run: bool = False, x_user_session: Optional[str] = Header(None)):
     """Merge duplicate events (same real event under different labels) into one canonical event.
 
     Remaps time entries, qualifying standards, and athletes' selectedEventIds, then deletes
     the duplicates. Also normalizes any residual non-canonical event names. Pass
     ?dry_run=true to preview without applying.
     """
-    events = list(db.events.find({}))
+    team_id = get_team_id(get_session(x_user_session))
+    events = list(db.events.find({"teamId": team_id}))
     if not events:
         return {"message": "No events to dedupe", "merged": 0, "deleted": 0, "dry_run": dry_run}
 
@@ -348,7 +432,7 @@ async def dedupe_events(dry_run: bool = False):
 
     # Plan athlete selectedEventIds remaps
     athlete_plan = []
-    for a in db.athletes.find({}):
+    for a in db.athletes.find({"teamId": team_id}):
         sels = a.get("selectedEventIds") or []
         new_sels = list(dict.fromkeys(id_map.get(x, x) for x in sels))
         if new_sels != sels:
@@ -377,9 +461,9 @@ async def dedupe_events(dry_run: bool = False):
         db.athletes.update_one({"id": aid}, {"$set": {"selectedEventIds": sels}})
 
     summary.update({
-        "remaining_events": db.events.count_documents({}),
-        "remaining_standards": db.qualifyingStandards.count_documents({}),
-        "remaining_times": db.timeEntries.count_documents({}),
+        "remaining_events": db.events.count_documents({"teamId": team_id}),
+        "remaining_standards": db.qualifyingStandards.count_documents({"teamId": team_id}),
+        "remaining_times": db.timeEntries.count_documents({"teamId": team_id}),
     })
     return summary
 
@@ -402,32 +486,35 @@ async def create_athlete(athlete: AthleteCreate, x_user_session: Optional[str] =
     return strip_mongo_id(athlete_dict)
 
 @app.put("/api/athletes/{athlete_id}")
-async def update_athlete(athlete_id: str, athlete: AthleteCreate):
+async def update_athlete(athlete_id: str, athlete: AthleteCreate, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
     update_data = {k: v for k, v in athlete.model_dump().items() if v is not None}
     result = db.athletes.find_one_and_update(
-        {"id": athlete_id}, {"$set": update_data}, return_document=True
+        {"id": athlete_id, "teamId": team_id}, {"$set": update_data}, return_document=True
     )
     if not result:
         raise HTTPException(status_code=404, detail="Athlete not found")
     return strip_mongo_id(result)
 
 @app.delete("/api/athletes/{athlete_id}")
-async def delete_athlete(athlete_id: str):
-    result = db.athletes.delete_one({"id": athlete_id})
+async def delete_athlete(athlete_id: str, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
+    result = db.athletes.delete_one({"id": athlete_id, "teamId": team_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Athlete not found")
     return {"success": True}
 
 # Time Entries Endpoints
 @app.get("/api/times")
-async def get_times():
+async def get_times(x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
     try:
         # Check primary collection
-        times = list(db.timeEntries.find({}).limit(5000))
+        times = list(db.timeEntries.find({"teamId": team_id}).limit(5000))
         
         # If empty, check if times might be in alternate collection name 'times'
         if len(times) == 0:
-            alt_times = list(db.times.find({}).limit(5000))
+            alt_times = list(db.times.find({"teamId": team_id}).limit(5000))
             if len(alt_times) > 0:
                 print(f"MIGRATION: Found {len(alt_times)} times in 'times' collection, migrating to 'timeEntries'")
                 for t in alt_times:
@@ -435,7 +522,7 @@ async def get_times():
                         db.timeEntries.insert_one(t)
                     except:
                         pass
-                times = list(db.timeEntries.find({}).limit(5000))
+                times = list(db.timeEntries.find({"teamId": team_id}).limit(5000))
         
         print(f"GET /api/times: returning {len(times)} entries")
         return [strip_mongo_id(t) for t in times]
@@ -444,39 +531,51 @@ async def get_times():
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.post("/api/times")
-async def create_time(entry: TimeEntryCreate):
+async def create_time(entry: TimeEntryCreate, x_user_session: Optional[str] = Header(None)):
+    session = get_session(x_user_session)
+    team_id = get_team_id(session)
+    athlete = db.athletes.find_one({"id": entry.athleteId})
+    if athlete:
+        athlete_team = athlete.get("teamId") or "team1"
+        if session and session.get("teamId") and athlete_team != team_id:
+            raise HTTPException(status_code=403, detail="Cannot log a time for another team's swimmer")
+        team_id = athlete_team
     entry_dict = entry.model_dump()
+    entry_dict["teamId"] = team_id
     entry_dict["id"] = entry_dict.get("id") or f"t_{int(datetime.utcnow().timestamp() * 1000)}"
     entry_dict["createdAt"] = datetime.utcnow()
     db.timeEntries.insert_one(entry_dict)
     return strip_mongo_id(entry_dict)
 
 @app.put("/api/times/{time_id}")
-async def update_time(time_id: str, entry: TimeEntryCreate):
+async def update_time(time_id: str, entry: TimeEntryCreate, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
     update_data = {k: v for k, v in entry.model_dump().items() if v is not None}
     result = db.timeEntries.find_one_and_update(
-        {"id": time_id}, {"$set": update_data}, return_document=True
+        {"id": time_id, "teamId": team_id}, {"$set": update_data}, return_document=True
     )
     if not result:
         raise HTTPException(status_code=404, detail="Time entry not found")
     return strip_mongo_id(result)
 
 @app.delete("/api/times/{time_id}")
-async def delete_time(time_id: str):
-    result = db.timeEntries.delete_one({"id": time_id})
+async def delete_time(time_id: str, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
+    result = db.timeEntries.delete_one({"id": time_id, "teamId": team_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Time entry not found")
     return {"success": True}
 
 # Qualifying Standards Endpoints
 @app.get("/api/standards")
-async def get_standards():
+async def get_standards(x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
     try:
-        standards = list(db.qualifyingStandards.find({}).limit(1000))
+        standards = list(db.qualifyingStandards.find({"teamId": team_id}).limit(1000))
         
         # If empty, check alternate collection name 'standards'
         if len(standards) == 0:
-            alt_standards = list(db.standards.find({}).limit(1000))
+            alt_standards = list(db.standards.find({"teamId": team_id}).limit(1000))
             if len(alt_standards) > 0:
                 print(f"MIGRATION: Found {len(alt_standards)} standards in 'standards' collection, migrating to 'qualifyingStandards'")
                 for s in alt_standards:
@@ -484,7 +583,7 @@ async def get_standards():
                         db.qualifyingStandards.insert_one(s)
                     except:
                         pass
-                standards = list(db.qualifyingStandards.find({}).limit(1000))
+                standards = list(db.qualifyingStandards.find({"teamId": team_id}).limit(1000))
         
         print(f"GET /api/standards: returning {len(standards)} entries")
         return [strip_mongo_id(s) for s in standards]
@@ -493,25 +592,30 @@ async def get_standards():
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.post("/api/standards")
-async def create_standard(standard: StandardCreate):
+async def create_standard(standard: StandardCreate, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
     standard_dict = standard.model_dump()
+    standard_dict["teamId"] = team_id
     standard_dict["id"] = standard_dict.get("id") or f"s_{int(datetime.utcnow().timestamp() * 1000)}"
     standard_dict["createdAt"] = datetime.utcnow()
     db.qualifyingStandards.insert_one(standard_dict)
     return strip_mongo_id(standard_dict)
 
 @app.post("/api/standards/bulk")
-async def create_standards_bulk(req: BulkStandardsCreate):
+async def create_standards_bulk(req: BulkStandardsCreate, x_user_session: Optional[str] = Header(None)):
     """Create or replace qualifying standards. Overwrites existing standards for the same event/age/gender/course/region."""
+    team_id = get_team_id(get_session(x_user_session))
     created = []
     for s in req.standards:
         standard_dict = s.model_dump()
+        standard_dict["teamId"] = team_id
         standard_dict["id"] = standard_dict.get("id") or f"s_{int(datetime.utcnow().timestamp() * 1000)}_{len(created)}"
         standard_dict["createdAt"] = datetime.utcnow()
         
         # Delete any existing standard for this exact combination (event + age + gender + course + region)
         # This ensures new times overwrite old ones
         delete_filter = {
+            "teamId": team_id,
             "eventId": standard_dict.get("eventId"),
             "ageGroup": standard_dict.get("ageGroup"),
             "gender": standard_dict.get("gender"),
@@ -530,54 +634,18 @@ async def create_standards_bulk(req: BulkStandardsCreate):
     return created
 
 @app.delete("/api/standards/{standard_id}")
-async def delete_standard(standard_id: str):
-    result = db.qualifyingStandards.delete_one({"id": standard_id})
+async def delete_standard(standard_id: str, x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
+    result = db.qualifyingStandards.delete_one({"id": standard_id, "teamId": team_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Standard not found")
     return {"success": True}
 
-# Seed Endpoint
+# Seed Endpoint (per-team)
 @app.post("/api/seed")
-async def seed_data():
-    existing_events = list(db.events.find({}).limit(1))
-    if len(existing_events) > 0:
-        return {"message": "Data already seeded", "seeded": False}
-    
-    default_events = [
-        {"id": "1", "name": "50 Free", "distance": 50, "stroke": "Freestyle", "course": "SCY", "ageGroup": "11-12"},
-        {"id": "2", "name": "100 Free", "distance": 100, "stroke": "Freestyle", "course": "SCY", "ageGroup": "11-12"},
-        {"id": "3", "name": "100 Back", "distance": 100, "stroke": "Backstroke", "course": "SCY", "ageGroup": "11-12"},
-        {"id": "4", "name": "100 Breast", "distance": 100, "stroke": "Breaststroke", "course": "SCY", "ageGroup": "11-12"},
-        {"id": "5", "name": "100 Fly", "distance": 100, "stroke": "Butterfly", "course": "SCY", "ageGroup": "11-12"},
-        {"id": "6", "name": "200 IM", "distance": 200, "stroke": "Individual Medley", "course": "SCY", "ageGroup": "11-12"},
-        {"id": "7", "name": "50 Free", "distance": 50, "stroke": "Freestyle", "course": "SCY", "ageGroup": "10U"},
-    ]
-    
-    for e in default_events:
-        e["createdAt"] = datetime.utcnow()
-        try:
-            db.events.insert_one(e)
-        except:
-            pass
-    
-    default_standards = [
-        {"id": "s1", "eventId": "1", "region": "Regional", "ageGroup": "11-12", "gender": "M", "course": "SCY", "cutTimeSeconds": 29.50, "season": "2025"},
-        {"id": "s2", "eventId": "1", "region": "State", "ageGroup": "11-12", "gender": "M", "course": "SCY", "cutTimeSeconds": 27.20, "season": "2025"},
-        {"id": "s1-f", "eventId": "1", "region": "Regional", "ageGroup": "11-12", "gender": "F", "course": "SCY", "cutTimeSeconds": 30.10, "season": "2025"},
-        {"id": "s2-f", "eventId": "1", "region": "State", "ageGroup": "11-12", "gender": "F", "course": "SCY", "cutTimeSeconds": 28.50, "season": "2025"},
-        {"id": "s3", "eventId": "2", "region": "Regional", "ageGroup": "11-12", "gender": "M", "course": "SCY", "cutTimeSeconds": 65.00, "season": "2025"},
-        {"id": "s4", "eventId": "2", "region": "State", "ageGroup": "11-12", "gender": "M", "course": "SCY", "cutTimeSeconds": 59.80, "season": "2025"},
-        {"id": "s5", "eventId": "7", "region": "Regional", "ageGroup": "10U", "gender": "M", "course": "SCY", "cutTimeSeconds": 34.50, "season": "2025"},
-    ]
-    
-    for s in default_standards:
-        s["createdAt"] = datetime.utcnow()
-        try:
-            db.qualifyingStandards.insert_one(s)
-        except:
-            pass
-    
-    return {"message": "Data seeded successfully", "seeded": True}
+async def seed_data(x_user_session: Optional[str] = Header(None)):
+    team_id = get_team_id(get_session(x_user_session))
+    return seed_team(team_id)
 
 # AI Endpoints
 @app.post("/api/ai/stroke-insights")
@@ -1758,11 +1826,11 @@ async def get_shared_team(share_code: str):
     print(f"  Athletes: {len(athletes)}, Athlete IDs: {athlete_ids}")
     print(f"  Times found: {len(athlete_times)}")
     
-    # Get events
-    events = list(db.events.find({}, {"_id": 0}).limit(500))
+    # Get events (scoped to the shared team)
+    events = list(db.events.find({"teamId": team_id}, {"_id": 0}).limit(500))
     
-    # Get qualifying standards
-    standards = list(db.qualifyingStandards.find({}, {"_id": 0}).limit(1000))
+    # Get qualifying standards (scoped to the shared team)
+    standards = list(db.qualifyingStandards.find({"teamId": team_id}, {"_id": 0}).limit(1000))
     
     return {
         "shareName": share.get("shareName", "Shared Team"),
@@ -1975,18 +2043,18 @@ async def get_lsc_extracted_times(state: str, course: str):
 @app.post("/api/ai/verify-all")
 async def verify_all_standards(x_user_session: str = Header(None)):
     """Auto re-verify ALL existing standards by re-researching each unique age/gender/course/state combo."""
-    
+    team_id = get_team_id(get_session(x_user_session))
     EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
     if not PERPLEXITY_API_KEY:
         raise HTTPException(status_code=500, detail="Perplexity API key not configured")
     
     # Get all standards grouped by unique combos
-    all_standards = list(db.qualifyingStandards.find({}, {"_id": 0}))
+    all_standards = list(db.qualifyingStandards.find({"teamId": team_id}, {"_id": 0}))
     if not all_standards:
         return {"message": "No standards to verify", "verified": 0}
     
     # Get all events to map eventId -> event details
-    all_events = {e["id"]: e for e in db.events.find({}, {"_id": 0})}
+    all_events = {e["id"]: e for e in db.events.find({"teamId": team_id}, {"_id": 0})}
     
     # Group standards by course + ageGroup + gender (we'll verify each group)
     from collections import defaultdict
@@ -2121,7 +2189,7 @@ Return JSON array:
                         
                         # Update all standards for this event
                         db.qualifyingStandards.update_many(
-                            {"eventId": tc["eventId"]},
+                            {"eventId": tc["eventId"], "teamId": team_id},
                             {"$set": {"verificationScore": score, "verificationConfidence": confidence}}
                         )
                         verified_count += 1
