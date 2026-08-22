@@ -282,6 +282,104 @@ async def delete_event(event_id: str):
         raise HTTPException(status_code=404, detail="Event not found")
     return {"success": True}
 
+
+@app.post("/api/events/dedupe")
+async def dedupe_events(dry_run: bool = False):
+    """Merge duplicate events (same real event under different labels) into one canonical event.
+
+    Remaps time entries, qualifying standards, and athletes' selectedEventIds, then deletes
+    the duplicates. Also normalizes any residual non-canonical event names. Pass
+    ?dry_run=true to preview without applying.
+    """
+    events = list(db.events.find({}))
+    if not events:
+        return {"message": "No events to dedupe", "merged": 0, "deleted": 0, "dry_run": dry_run}
+
+    # Group events by canonical identity (distance, stroke, course, age group)
+    groups = {}
+    for e in events:
+        dist = e.get("distance") or 50
+        course = normalize_course_str(e.get("course"))
+        age = normalize_age_group(e.get("ageGroup"))
+        short = _canonical_stroke_short(e.get("stroke") or e.get("name", ""))
+        groups.setdefault((dist, short, course, age), []).append(e)
+
+    def keep_priority(e):
+        eid = str(e.get("id", ""))
+        ca = e.get("createdAt")
+        ts = ca.timestamp() if hasattr(ca, "timestamp") else 0.0
+        return (0 if eid.isdigit() else 1, ts, eid)  # prefer seeded "1".."7", then oldest
+
+    id_map = {}
+    to_normalize = []  # (event_id, canonical fields) for events needing name cleanup
+    merge_plan = []    # (dup_id, canonical_id)
+
+    for group in groups.values():
+        if len(group) == 1:
+            e = group[0]
+            eid = e["id"]
+            id_map[eid] = eid
+            canonical = {
+                "name": normalize_event_name(e.get("name"), e.get("distance"), e.get("course")),
+                "stroke": normalize_stroke_name(e.get("stroke") or e.get("name")),
+                "course": normalize_course_str(e.get("course")),
+                "ageGroup": normalize_age_group(e.get("ageGroup")),
+            }
+            if any(e.get(k) != v for k, v in canonical.items()):
+                to_normalize.append((eid, canonical))
+            continue
+
+        group.sort(key=keep_priority)
+        canonical = group[0]
+        cid = canonical["id"]
+        canon_fields = {
+            "name": normalize_event_name(canonical.get("name"), canonical.get("distance"), canonical.get("course")),
+            "stroke": normalize_stroke_name(canonical.get("stroke") or canonical.get("name")),
+            "course": normalize_course_str(canonical.get("course")),
+            "ageGroup": normalize_age_group(canonical.get("ageGroup")),
+        }
+        to_normalize.append((cid, canon_fields))
+        for dup in group[1:]:
+            merge_plan.append((dup["id"], cid))
+            id_map[dup["id"]] = cid
+
+    # Plan athlete selectedEventIds remaps
+    athlete_plan = []
+    for a in db.athletes.find({}):
+        sels = a.get("selectedEventIds") or []
+        new_sels = list(dict.fromkeys(id_map.get(x, x) for x in sels))
+        if new_sels != sels:
+            athlete_plan.append((a["id"], new_sels))
+
+    summary = {
+        "dry_run": dry_run,
+        "total_events": len(events),
+        "canonical_groups": len(groups),
+        "merge_count": len(merge_plan),
+        "normalize_count": len(to_normalize),
+        "athletes_updated": len(athlete_plan),
+        "events_after": len(events) - len(merge_plan),
+    }
+
+    if dry_run:
+        return summary
+
+    for eid, fields in to_normalize:
+        db.events.update_one({"id": eid}, {"$set": fields})
+    for dup_id, cid in merge_plan:
+        db.timeEntries.update_many({"eventId": dup_id}, {"$set": {"eventId": cid}})
+        db.qualifyingStandards.update_many({"eventId": dup_id}, {"$set": {"eventId": cid}})
+        db.events.delete_one({"id": dup_id})
+    for aid, sels in athlete_plan:
+        db.athletes.update_one({"id": aid}, {"$set": {"selectedEventIds": sels}})
+
+    summary.update({
+        "remaining_events": db.events.count_documents({}),
+        "remaining_standards": db.qualifyingStandards.count_documents({}),
+        "remaining_times": db.timeEntries.count_documents({}),
+    })
+    return summary
+
 # Athletes Endpoints
 @app.get("/api/athletes")
 async def get_athletes(x_user_session: Optional[str] = Header(None)):
