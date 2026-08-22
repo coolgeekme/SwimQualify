@@ -1,0 +1,34 @@
+{
+  "summary": "Backend-only testing of the new POST /api/events/dedupe endpoint and the event-name normalization logic pulled from GitHub. Created /app/backend/tests/test_events_dedupe.py (67 tests: unit tests for _canonical_stroke_short/normalize_stroke_name/normalize_course_str/normalize_age_group/normalize_event_name + API tests for dedupe dry-run, real merge, idempotency, canonical GET /api/events, and create_event canonicalization/duplicate reuse). 66/67 passed. The reported 405 issue is FIXED: POST /api/events/dedupe?dry_run=true returns 200 with {dry_run, total_events:7, canonical_groups:7, merge_count, normalize_count, athletes_updated, events_after}; non-dry-run adds remaining_events/remaining_standards/remaining_times and is idempotent. Duplicate-create reuse works (variant labels 'Girls 200 Yard Freestyle 15 & 16'/'FR'/'Yards'/'15 & 16' returned the existing event id, event count unchanged). Non-canonical name 'Boys 50 Yard Butterfly SCY' normalized to '50 Fly' with stroke Butterfly, course SCY, ageGroup 13-14 and persisted. One real bug found in create_event distance inference. All test-created events were cleaned up (DB back to the 7 seed events).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/events", "issue": "Distance inference bug: when distance=0 (falsy), create_event runs its own regex on the RAW name before age-label stripping, so payload {name:'11-12 Boys 100 Backstroke', distance:0, course:'SCY'} was stored as distance=12, name='12 Back'. Fix: strip age-group labels first or reuse normalize_event_name's parsing (it correctly returns '100 Back')."},
+      {"endpoint": "normalization helpers (_canonical_stroke_short)", "issue": "Loose substring matching: bare 'im' matches any name containing im/Swim/Time/Prelim -> classified as IM ('100 Free Swim Time Trial' -> '100 IM'; 'Prelim 50 Free' -> IM). Same risk for 2-letter tokens 'fr', 'bk', 'br', 'fl'. This matters because normalize_event_name is applied to OCR/heat-sheet extracted event names (server.py ~1479, ~1532). Use word-boundary regex instead of `in`."},
+      {"endpoint": "normalization helpers (normalize_age_group)", "issue": "Unhandled labels pass through unchanged: '14U' -> '14U', '16U' -> '16U', '19 & Over' -> '19 & Over' (no 13-14 / 15-16 / open mapping), which can create separate canonical groups for the same real bracket."},
+      {"endpoint": "POST /api/events/dedupe", "issue": "Destructive endpoint (deletes events, remaps timeEntries/qualifyingStandards/athletes) has no auth/session check - callable anonymously from the public URL. Consider requiring an authenticated coach/admin session."},
+      {"endpoint": "POST /api/events/dedupe", "issue": "All Mongo calls are sync pymongo inside async handlers (blocks the event loop); the merge loop also issues per-duplicate update_many/delete_one instead of a bulk write."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_events_dedupe.py", "/app/backend/tests/conftest.py", "/app/test_reports/pytest/pytest_dedupe.xml"],
+  "action_items": [
+    "Fix create_event distance inference for distance=0/omitted: strip age-group labels (e.g. '11-12') before extracting distance, or delegate to normalize_event_name.",
+    "Replace substring stroke matching in _canonical_stroke_short with word-boundary regex to avoid 'Swim'/'Time'/'Prelim' -> IM misclassification.",
+    "Extend normalize_age_group to cover 14U/16U/19&Over style labels.",
+    "Add auth/role guard to POST /api/events/dedupe (destructive)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 2166 lines - split routers (events, athletes, times, standards, teams, OCR) into modules.",
+    "Normalization helpers are defined ~line 1541 but used at line 240 (works only because calls are at request time); move helpers above route definitions or into a utils module.",
+    "dedupe_events performs multi-collection mutations without a transaction; a mid-run failure leaves events deleted but selectedEventIds unremapped."
+  ],
+  "updated_files": ["/app/backend/tests/test_events_dedupe.py", "/app/backend/tests/conftest.py"],
+  "success_rate": {"backend": "98% (66/67 tests)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Temporarily created events '50 Fly 13-14', '200 Free 15-16', a duplicate '50 Free 11-12' variant and one mis-parsed '12 Back'; all deleted by the class teardown fixture. DB verified back to the 7 seed events.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "/app/memory/test_credentials.md - demo login buttons only, no passwords; not needed for these endpoints (no auth required).",
+  "context_for_next_testing_agent": "Run `pytest /app/backend/tests/test_events_dedupe.py -v` for regression on dedupe + normalization. conftest.py provides base_url/api_client/created_event_ids/cleanup fixtures. Only remaining known failure is test_distance_inferred_from_name_with_age_label (real create_event bug, not a test issue).",
+  "rca_of_the_issue": "405 no longer reproduces - POST /api/events/dedupe is registered and returns 200 for both dry_run=true and the real run; GET on the same path correctly returns 405. Root cause of the one failing test: create_event's local distance regex (server.py ~245) scans the raw event name before age-group labels are stripped, so '11-12' is matched and max(11,12)=12 becomes the distance for SCY."
+}

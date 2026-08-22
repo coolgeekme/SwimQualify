@@ -242,7 +242,10 @@ async def create_event(event: EventCreate):
     # (e.g. "13U Boys 50 Fly SCY", "50 Butterfly", "50 Yard Fly" all -> "50 Fly").
     dist = event.distance
     if not dist:
-        m = re.search(r"\b(\d{2,4})\s*(?:[/-]\s*(\d{2,4}))?\b", event.name or "")
+        # Strip age-group labels before extracting distance to avoid '11-12' -> 12
+        cleaned_name = re.sub(r"\b\d{1,2}\s*[-&]\s*\d{1,2}\b", " ", event.name or "")
+        cleaned_name = re.sub(r"\b\d{1,2}\s*&?\s*(?:u|under)\b", " ", cleaned_name, flags=re.IGNORECASE)
+        m = re.search(r"\b(\d{2,4})\s*(?:[/-]\s*(\d{2,4}))?\b", cleaned_name)
         if m:
             a = int(m.group(1))
             b = int(m.group(2)) if m.group(2) else None
@@ -1541,15 +1544,16 @@ Critical instructions:
 def _canonical_stroke_short(text: str) -> str:
     """Map any stroke token to a short canonical form: Free/Back/Breast/Fly/IM."""
     s = (text or "").lower()
-    if any(x in s for x in ["im", "medley", "i.m", "individual"]):
+    # Use word-boundary regex to avoid false matches (e.g. 'Swim' -> IM, 'Prelim' -> IM)
+    if re.search(r"\b(?:im|i\.m|individual\s*medley|medley)\b", s):
         return "IM"
-    if any(x in s for x in ["back", "bk"]):
+    if re.search(r"\b(?:back(?:stroke)?|bk)\b", s):
         return "Back"
-    if any(x in s for x in ["breast", "br"]):
+    if re.search(r"\b(?:breast(?:stroke)?|br)\b", s):
         return "Breast"
-    if any(x in s for x in ["fly", "fl", "butter"]):
+    if re.search(r"\b(?:fly|butterfly|fl)\b", s):
         return "Fly"
-    if any(x in s for x in ["free", "fr", "freestyle"]):
+    if re.search(r"\b(?:free(?:style)?|fr)\b", s):
         return "Free"
     return "Free"
 
@@ -1590,11 +1594,11 @@ def normalize_age_group(age_group: str) -> str:
         return "10U"  # 8&U and 10&U both fold into the app's 10U bracket
     if re.search(r"\b1[12]\s*[-&]\s*1[12]\b", low) or re.search(r"\b12\s*&?\s*(?:u|under)\b", low):
         return "11-12"
-    if re.search(r"\b1[34]\s*[-&]\s*1[34]\b", low) or re.search(r"\b13\s*&?\s*(?:u|under)\b", low):
+    if re.search(r"\b1[34]\s*[-&]\s*1[34]\b", low) or re.search(r"\b(?:13|14)\s*&?\s*(?:u|under)\b", low):
         return "13-14"
-    if re.search(r"\b1[56]\s*[-&]\s*1[56]\b", low):
+    if re.search(r"\b1[56]\s*[-&]\s*1[56]\b", low) or re.search(r"\b(?:15|16)\s*&?\s*(?:u|under)\b", low):
         return "15-16"
-    if re.search(r"\b1[78]\s*[-&]\s*1[78]\b", low) or "senior" in low or "open" in low:
+    if re.search(r"\b1[78]\s*[-&]\s*1[78]\b", low) or re.search(r"\b(?:17|18)\s*&?\s*(?:u|under)\b", low) or "senior" in low or "open" in low:
         return "17-18"
     return s
 

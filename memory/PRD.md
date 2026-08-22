@@ -81,11 +81,15 @@ SwimQual.app is a full-stack application for swimmers, coaches, and parents to t
 - [x] "Verify All" button
 - [x] Course tabs on dashboard (SCY | LCM | SCM | ALL)
 - [x] LSC PDF download & upload system
+- [x] GitHub pull: Event name normalization + POST /api/events/dedupe endpoint (Feb 2026)
+- [x] Fixed distance inference bug (age-group labels no longer parsed as distances)
+- [x] Fixed stroke matching (word-boundary regex prevents false IM matches)
+- [x] Extended age-group normalization (14U, 16U, 18U now handled)
 
 ### P1 (Next)
 - [ ] Import meet results from files (CSV, Hy-Tek .hy3)
 - [ ] Re-upload custom logos
-- [ ] Clean up duplicate events in production DB
+- [x] Clean up duplicate events in production DB (dedupe endpoint + event normalization pulled from GitHub)
 
 ### P2 (Future)
 - [ ] Swimmer percentile rank vs national swimmers
