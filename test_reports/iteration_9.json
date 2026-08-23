@@ -1,0 +1,51 @@
+{
+  "summary": "Focused test of the new per-team data isolation commit (backend + frontend). Created /app/backend/tests/test_team_isolation.py (19 tests) covering registration->new team + default seeding, login teamId, events/times/standards/athletes scoping, cross-team read/update/delete denial, bulk-standards replace filter scoping, dedupe scoping, /api/seed idempotency, share-link scoping, and session-header fallbacks. Full backend suite: 97/97 passed (also fixed a broken BASE_URL in the pre-existing test_team_sharing.py which made 11 tests error out). Frontend verified with Playwright: registration creates team_5, session headers are sent on /api/seed, /api/events, /api/standards, /api/times, /api/athletes, and the new team sees only its own 24 seeded events with 0 standards/times/athletes from team1. Functional isolation works. However, isolation is NOT a security boundary: teamId is taken from an unsigned client-supplied X-User-Session header, so an unauthenticated caller can read and write ANY team's data by forging the header (verified with curl).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "all /api/* using X-User-Session", "issue": "teamId is read from an unsigned, unverified client header (get_session/get_team_id). Verified: `curl -H 'X-User-Session: {\"teamId\":\"team_5\"}' /api/events` returned all 24 of team_5's events with no credentials, and an anonymous POST /api/standards with the same forged header inserted a record into team_5 (200). Any user can read/modify/delete another team's events, times, standards and athletes. Data isolation is display-only, not enforced.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/times", "issue": "Cross-team guard at line 540 requires `session and session.get('teamId')`. A caller with no session (or a session lacking teamId) is treated as team1 and the entry is silently stamped with the athlete's team, so anonymous callers can write time entries into any team."},
+      {"endpoint": "backfill_team_ids()", "issue": "Legacy docs in the alternate `db.times` collection are unconditionally stamped teamId='team1' (line 50) while `timeEntries` are derived from the athlete's team. GET /api/times then migrates those `times` docs into timeEntries, potentially mis-attributing legacy rows to team1."},
+      {"endpoint": "POST /api/auth/register", "issue": "teamId is derived as f'team_{user_id}' where user_id = max(existing id)+1. If a user row is ever removed, the id (and thus teamId) is reused and the new account inherits the previous team's leftover events/standards/times. Prefer a uuid-based team id."},
+      {"endpoint": "POST /api/auth/register", "issue": "Client-supplied `teamId` in RegisterRequest is accepted verbatim, so anyone can register directly into an existing team (e.g. teamId='team1') and gain full access to its data."},
+      {"endpoint": "seed_team()", "issue": "Event ids are deterministic (e_{teamId}_{idx}) with no unique index; two concurrent /api/seed calls for a new team can create duplicate events (the count-based guard is not atomic)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Login/Register screens", "issue": "No data-testid attributes on any auth input/button (blocked automation). Added login-email-input, login-password-input, login-submit-button, login-error, demo-login-{name}, go-to-register-button, register-name/email/password inputs, register-role-select, register-submit-button, register-error, go-to-login-button.", "selector": "[data-testid=login-submit-button]", "priority": "LOW (fixed by tester)"}
+    ],
+    "integration_issues": [
+      {"flow": "Session header content", "issue": "getSessionHeaders sends the entire User object as JSON, which for demo/mock users includes the plaintext `password` field (verified in request headers: '...\"email\":\"alex@team.com\",\"pas...'). Send only {userId, teamId, role} (or better, a signed token).", "affected_selectors": ["X-User-Session header"]},
+      {"flow": "Register/login error display", "issue": "Frontend reads `error.error` but FastAPI returns `{detail: ...}`, so the 409 duplicate-email message is replaced by the generic 'Registration failed.' text.", "affected_selectors": ["[data-testid=register-error]", "[data-testid=login-error]"]},
+      {"flow": "API base URL", "issue": "All fetches use relative '/api/...' instead of process.env.REACT_APP_BACKEND_URL (works behind ingress but violates the env-var contract).", "affected_selectors": ["fetch('/api/events')"]}
+    ],
+    "design_issues": [
+      {"screen": "Console", "issues": ["Tailwind CDN (cdn.tailwindcss.com) is loaded at runtime and logs a production warning; should be built via PostCSS"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_team_isolation.py", "/app/backend/tests/test_team_sharing.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "CRITICAL: stop trusting the client-supplied X-User-Session header. Resolve teamId server-side from an authenticated session/token (or at minimum validate userId+teamId against db.users) before scoping any query.",
+    "Reject or ignore client-supplied teamId in POST /api/auth/register (or gate it behind an invite code).",
+    "Tighten POST /api/times: reject writes when there is no valid session instead of falling back to team1/athlete team.",
+    "Frontend: send only {userId, teamId, role} in X-User-Session - the current payload leaks the demo users' plaintext password.",
+    "Frontend: read error messages from `detail` (FastAPI) so 409/400 messages surface on login/register.",
+    "Use uuid-based team ids instead of team_{sequential user id} to avoid team id reuse."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 2237 lines - split into routers (auth, events, times, standards, teams, ai) and a db module.",
+    "get_session() swallows all exceptions with a bare `except:` and silently degrades to team1; log and/or 400 on malformed headers.",
+    "backfill_team_ids() runs at import time on every worker start; make it a startup event guarded by a migration marker document.",
+    "GET /api/times and GET /api/standards perform write migrations (copy from db.times/db.standards) inside read endpoints - move this to the migration path."
+  ],
+  "updated_files": ["/app/backend/tests/test_team_isolation.py", "/app/backend/tests/test_team_sharing.py", "/app/frontend/src/App.tsx"],
+  "success_rate": {"backend": "100% (97/97 functional tests)", "frontend": "100% of tested team-isolation flows"},
+  "seed_data_creation": "Registered 5 temporary users (TEST_iso_*, TEST_ui*) creating teams team_1..team_5; all users, their 24 seeded events, standards, times and athletes were deleted after testing. team1 data left untouched (7 events, 7 standards, 3 times, 3 athletes). 0 documents remain without a teamId.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "Demo mock users (frontend only): alex@team.com / maria@parent.com / sarah@team.com / admin@swim.com, password123, all teamId=team1. DB users created for tests were cleaned up.",
+  "context_for_next_testing_agent": "Per-team scoping is functionally correct for every endpoint tested; do not re-test the happy path. The open item is authorization: teamId comes from the unsigned X-User-Session header, so forged headers grant full cross-team read/write (repro: curl -H 'X-User-Session: {\"teamId\":\"<other team>\"}' <BASE>/api/events). Re-run /app/backend/tests/test_team_isolation.py after the fix - the tests build headers via hdr(team_id) and will need real auth tokens once server-side session validation lands. Frontend localStorage session key is 'sq_prod_session_v3'.",
+  "rca_of_the_issue": "get_team_id(get_session(x_user_session)) parses the raw X-User-Session header as JSON and uses its teamId with no verification against db.users and no signature, and defaults to 'team1' when absent. Mongo queries are therefore scoped by an attacker-controlled value, giving isolation for honest clients only."
+}

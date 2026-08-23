@@ -12,7 +12,12 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+from dotenv import dotenv_values
+
+_base = os.environ.get('REACT_APP_BACKEND_URL') or dotenv_values('/app/frontend/.env').get('REACT_APP_BACKEND_URL')
+if not _base:
+    raise RuntimeError('REACT_APP_BACKEND_URL missing from env and /app/frontend/.env')
+BASE_URL = _base.rstrip('/')
 
 # Test session for Alex (parent)
 ALEX_SESSION = '{"id":"user1","name":"Alex Rivera","email":"alex@swimclub.com","role":"parent","teamId":"team1"}'

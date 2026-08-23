@@ -59,7 +59,7 @@ const STORAGE_KEYS = {
 
 const getSessionHeaders = (user: User | null) => ({
   'Content-Type': 'application/json',
-  ...(user ? { 'X-User-Session': JSON.stringify(user) } : {})
+  ...(user ? { 'X-User-Session': JSON.stringify({ userId: user.id, teamId: user.teamId, role: user.role }) } : {})
 });
 
 const App: React.FC = () => {
@@ -687,7 +687,7 @@ const App: React.FC = () => {
         handleTabChange(userWithRole.role === Role.COACH || userWithRole.role === Role.ADMIN ? 'roster' : 'dashboard');
       } else {
         const error = await response.json();
-        setLoginError(error.error || 'Invalid credentials.');
+        setLoginError(error.detail || error.error || 'Invalid credentials.');
       }
     } catch (err) {
       setLoginError('Login failed. Please try again.');
@@ -744,7 +744,7 @@ const App: React.FC = () => {
         handleTabChange(role === Role.COACH ? 'roster' : 'dashboard');
       } else {
         const error = await response.json();
-        setRegisterError(error.error || 'Registration failed.');
+        setRegisterError(error.detail || error.error || 'Registration failed.');
       }
     } catch (err) {
       setRegisterError('Registration failed. Please try again.');
@@ -2967,19 +2967,19 @@ const App: React.FC = () => {
           <form onSubmit={handleLoginSubmit} className="space-y-5">
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-              <input name="email" type="email" placeholder="alex@team.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 focus:shadow-lg focus:shadow-sky-500/10 transition-all placeholder:text-slate-600" />
+              <input data-testid="login-email-input" name="email" type="email" placeholder="alex@team.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 focus:shadow-lg focus:shadow-sky-500/10 transition-all placeholder:text-slate-600" />
             </div>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-              <input name="password" type="password" placeholder="••••••••" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 focus:shadow-lg focus:shadow-sky-500/10 transition-all placeholder:text-slate-600" />
+              <input data-testid="login-password-input" name="password" type="password" placeholder="••••••••" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 focus:shadow-lg focus:shadow-sky-500/10 transition-all placeholder:text-slate-600" />
             </div>
-            {loginError && <p className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg animate-scale-in">{loginError}</p>}
-            <button type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 hover:scale-[1.02] transition-all btn-press ripple">
+            {loginError && <p data-testid="login-error" className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg animate-scale-in">{loginError}</p>}
+            <button data-testid="login-submit-button" type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 hover:scale-[1.02] transition-all btn-press ripple">
               Log In
             </button>
           </form>
           <div className="mt-6 pt-6 border-t border-white/5">
-            <p className="text-sm text-slate-400">Don't have an account? <button onClick={() => { setCurrentScreen('register'); setLoginError(null); }} className="text-sky-400 font-bold hover:text-sky-300 transition-colors">Register</button></p>
+            <p className="text-sm text-slate-400">Don't have an account? <button data-testid="go-to-register-button" onClick={() => { setCurrentScreen('register'); setLoginError(null); }} className="text-sky-400 font-bold hover:text-sky-300 transition-colors">Register</button></p>
           </div>
           <div className="mt-6 pt-6 border-t border-white/5">
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest text-center">Demo Accounts</p>
@@ -2987,6 +2987,7 @@ const App: React.FC = () => {
               {['alex@team.com', 'maria@parent.com', 'sarah@team.com', 'admin@swim.com'].map((e, i) => (
                 <button 
                   key={e} 
+                  data-testid={`demo-login-${e.split('@')[0]}`}
                   onClick={() => quickLogin(e)} 
                   className="bg-slate-900/60 hover:bg-sky-500/20 border border-white/5 hover:border-sky-500/30 rounded-xl p-3 text-[10px] font-bold uppercase text-slate-400 hover:text-sky-400 truncate transition-all btn-press animate-fade-in"
                   style={{ animationDelay: `${0.3 + i * 0.1}s` }}
@@ -3011,24 +3012,24 @@ const App: React.FC = () => {
         <p className="text-slate-500 text-sm mb-8">Join the SwimQual community</p>
         <div className="glass-card rounded-3xl p-8">
           <form onSubmit={handleRegisterSubmit} className="space-y-5">
-            <input name="name" type="text" placeholder="Your Name" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
-            <input name="email" type="email" placeholder="email@example.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
-            <input name="password" type="password" placeholder="Password" required minLength={6} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            <input data-testid="register-name-input" name="name" type="text" placeholder="Your Name" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            <input data-testid="register-email-input" name="email" type="email" placeholder="email@example.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            <input data-testid="register-password-input" name="password" type="password" placeholder="Password" required minLength={6} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest text-left">I am a...</label>
-              <select name="role" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all">
+              <select data-testid="register-role-select" name="role" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all">
                 <option value={Role.SWIMMER}>Swimmer</option>
                 <option value={Role.PARENT}>Parent</option>
                 <option value={Role.COACH}>Coach</option>
               </select>
             </div>
-            {registerError && <p className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg">{registerError}</p>}
-            <button type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/40 transition-all btn-press">
+            {registerError && <p data-testid="register-error" className="text-red-400 text-xs font-bold bg-red-500/10 px-4 py-2 rounded-lg">{registerError}</p>}
+            <button data-testid="register-submit-button" type="submit" className="w-full py-4 rounded-xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/40 transition-all btn-press">
               Create Account
             </button>
           </form>
           <div className="mt-6 pt-6 border-t border-white/5">
-            <p className="text-sm text-slate-400">Already have an account? <button onClick={() => { setCurrentScreen('login'); setRegisterError(null); }} className="text-sky-400 font-bold hover:text-sky-300">Log In</button></p>
+            <p className="text-sm text-slate-400">Already have an account? <button data-testid="go-to-login-button" onClick={() => { setCurrentScreen('login'); setRegisterError(null); }} className="text-sky-400 font-bold hover:text-sky-300">Log In</button></p>
           </div>
         </div>
       </div>

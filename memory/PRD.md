@@ -85,6 +85,9 @@ SwimQual.app is a full-stack application for swimmers, coaches, and parents to t
 - [x] Fixed distance inference bug (age-group labels no longer parsed as distances)
 - [x] Fixed stroke matching (word-boundary regex prevents false IM matches)
 - [x] Extended age-group normalization (14U, 16U, 18U now handled)
+- [x] GitHub pull: Per-team data isolation — events/times/standards/athletes scoped by teamId (Feb 2026)
+- [x] Fixed session header leaking passwords (now sends only userId, teamId, role)
+- [x] Fixed error message parsing (reads FastAPI `detail` field)
 
 ### P1 (Next)
 - [ ] Import meet results from files (CSV, Hy-Tek .hy3)
