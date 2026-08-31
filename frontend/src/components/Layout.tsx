@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, BarChart3, Target, Users, Search } from 'lucide-react';
+import { Home, BarChart3, Target, Users, Search, TrendingUp } from 'lucide-react';
 import { User, Role } from '../types';
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
 const Layout: React.FC<Props> = ({ children, activeTab, setActiveTab, title, user, onLogout }) => {
   const navItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', roles: [Role.SWIMMER, Role.PARENT] },
+    { id: 'progress', icon: TrendingUp, label: 'Progress', roles: [Role.SWIMMER, Role.PARENT, Role.COACH, Role.ADMIN] },
     { id: 'admin', icon: BarChart3, label: 'Results', roles: [Role.ADMIN, Role.COACH, Role.PARENT, Role.SWIMMER] },
     { id: 'focus', icon: Target, label: 'Focus', roles: [Role.SWIMMER, Role.COACH, Role.PARENT] },
     { id: 'roster', icon: Users, label: 'Team', roles: [Role.COACH, Role.ADMIN, Role.PARENT] },
