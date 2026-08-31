@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Layout from './components/Layout';
 import DashboardCard from './components/DashboardCard';
+import ProgressChart from './components/ProgressChart';
 import StandardsVerificationModal from './components/StandardsVerificationModal';
 import { getAchievementLevel, getLevelColor, getLevelDescription, formatTimeFromSeconds } from './utils/motivationalTimes';
 import { EVENTS, MOCK_STANDARDS, MOCK_TIMES, MOCK_ATHLETES, MOCK_USERS } from './constants';
@@ -15,7 +16,7 @@ import { formatTime, calculatePace, parseTime, getAgeGroup, getAgeGroupAtDate } 
 import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { User, Role, Athlete, TimeEntry, Event, Stroke, QualifyingStandard, WeeklyCheckIn, Course } from './types';
 
-type Screen = 'dashboard' | 'event-detail' | 'roster' | 'focus' | 'admin' | 'add-time' | 'add-athlete' | 'add-event' | 'login' | 'register' | 'manage-swimmer-events' | 'scan-times' | 'shared-view';
+type Screen = 'dashboard' | 'event-detail' | 'roster' | 'focus' | 'admin' | 'add-time' | 'add-athlete' | 'add-event' | 'login' | 'register' | 'manage-swimmer-events' | 'scan-times' | 'shared-view' | 'progress';
 
 interface ExtractedTime {
   swimmerName: string;
@@ -1868,6 +1869,30 @@ const App: React.FC = () => {
     );
   };
 
+  const renderProgress = () => {
+    if (!currentAthlete) return (
+      <div className="text-center py-20 glass-card rounded-2xl">
+        <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+        <p className="text-slate-400 font-bold mb-4 uppercase text-xs">No Athlete Selected</p>
+        <button onClick={() => handleTabChange('roster')} className="bg-sky-500 hover:bg-sky-400 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs glow-blue transition-all btn-press">Choose Swimmer</button>
+      </div>
+    );
+    return (
+      <div className="space-y-6 pb-20">
+        <div className="glass-card rounded-2xl p-5">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-xl shadow-lg shadow-emerald-500/30"><Activity className="w-5 h-5 text-white" /></div>
+            <div>
+              <h3 className="font-display text-xl font-bold text-white uppercase">Progress</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase">{currentAthlete.name} · every event over the season</p>
+            </div>
+          </div>
+        </div>
+        <ProgressChart athlete={currentAthlete} times={times} events={events} standards={standards} />
+      </div>
+    );
+  };
+
   const renderDashboard = () => {
     if (!currentAthlete) return (
       <div className="text-center py-20 glass-card rounded-2xl">
@@ -2858,6 +2883,7 @@ const App: React.FC = () => {
   const getContent = () => {
     switch (currentScreen) {
       case 'dashboard': return renderDashboard();
+      case 'progress': return renderProgress();
       case 'event-detail': return selectedEventId && currentAthlete ? <div className="space-y-6 pb-10"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-sky-400 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="glass-card p-6 rounded-2xl"><div className="flex justify-between items-start mb-8"><div><h3 className="font-display text-3xl font-black text-white uppercase">{events.find(e => e.id === selectedEventId)?.name}</h3><div className="flex items-center space-x-2 mt-1"><p className="text-sm font-bold text-slate-500 uppercase">{events.find(e => e.id === selectedEventId)?.stroke}</p></div></div><button onClick={() => setCurrentScreen('add-time')} className="bg-sky-500 hover:bg-sky-400 text-white p-3 rounded-xl shadow-lg shadow-sky-500/30 transition-all btn-press"><Plus className="w-6 h-6" /></button></div><div className="h-72 w-full"><ResponsiveContainer width="100%" height="100%"><RechartsLine data={times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id && !t.isDQ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(t => ({ date: new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), time: t.timeSeconds }))}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" /><XAxis dataKey="date" tick={{fontSize: 9, fill: '#64748b'}} axisLine={false} tickLine={false} /><YAxis hide domain={['auto', 'auto']} /><Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} formatter={(v: number) => [formatTime(v), 'Result']} /><Line type="monotone" dataKey="time" stroke="#0ea5e9" strokeWidth={4} dot={{r: 5, fill: '#0ea5e9'}} /></RechartsLine></ResponsiveContainer></div></div><div className="glass-card p-6 rounded-2xl"><h4 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center"><History className="w-4 h-4 mr-2" /> Time History</h4><div className="space-y-3">{times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(t => <div key={t.id} className="flex justify-between items-center p-4 bg-slate-900/60 rounded-xl border border-white/5"><div><p className={`font-display text-2xl font-black ${t.isDQ ? 'text-red-400' : 'text-sky-400'}`}>{t.isDQ ? 'DQ' : formatTime(t.timeSeconds)}</p><div className="flex items-center space-x-2 mt-1"><Calendar className="w-3 h-3 text-slate-500" /><span className="text-xs text-slate-500 font-bold">{new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>{t.meetName && <><span className="w-1 h-1 bg-slate-600 rounded-full"></span><span className="text-xs text-slate-400 font-bold">{t.meetName}</span></>}</div></div><button onClick={() => setEditingTimeEntry(t)} className="text-slate-500 hover:text-sky-400 p-2 rounded-lg hover:bg-sky-500/10 transition-all"><Edit3 className="w-4 h-4" /></button><button onClick={() => handleDeleteTime(t.id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-all"><Trash2 className="w-4 h-4" /></button></div>)}{times.filter(t => t.eventId === selectedEventId && t.athleteId === currentAthlete.id).length === 0 && <p className="text-center text-slate-500 text-sm py-8">No times recorded yet</p>}</div></div>{editingTimeEntry && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="glass-card rounded-2xl p-6 w-full max-w-md shadow-2xl"><div className="flex justify-between items-center mb-6"><h3 className="font-display text-xl font-bold text-white uppercase">Edit Time</h3><button onClick={() => setEditingTimeEntry(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button></div><form onSubmit={handleUpdateTime} className="space-y-4"><div className="flex items-center space-x-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl"><input name="isDQ" type="checkbox" id="editIsDQ" defaultChecked={editingTimeEntry.isDQ} className="w-5 h-5 rounded border-red-500/50 text-red-500 focus:ring-red-500 bg-slate-900" /><label htmlFor="editIsDQ" className="text-sm font-bold text-red-400 uppercase">Disqualified (DQ)</label></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Time (mm:ss.xx)</label><input name="time" type="text" defaultValue={editingTimeEntry.isDQ ? '' : formatTime(editingTimeEntry.timeSeconds)} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Date</label><input name="date" type="date" defaultValue={editingTimeEntry.date} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Name (optional)</label><input name="meetName" type="text" defaultValue={editingTimeEntry.meetName || ''} placeholder="e.g. Regional Championships" className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 font-bold text-white outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" /></div><div className="flex space-x-3 pt-2"><button type="button" onClick={() => handleDeleteTime(editingTimeEntry.id)} className="bg-red-500/10 text-red-400 py-3 px-4 rounded-xl font-bold uppercase text-xs hover:bg-red-500/20 transition-all"><Trash2 className="w-4 h-4" /></button><button type="button" onClick={() => setEditingTimeEntry(null)} className="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl font-bold uppercase text-xs hover:bg-slate-700">Cancel</button><button type="submit" className="flex-1 bg-sky-500 text-white py-3 rounded-xl font-bold uppercase text-xs hover:bg-sky-400">Save Changes</button></div></form></div></div>}{deletingTimeId && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center"><div className="bg-red-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 className="w-8 h-8 text-red-400" /></div><h3 className="font-display text-xl font-bold text-white uppercase mb-2">Delete Time?</h3><p className="text-slate-400 text-sm mb-6">This action cannot be undone.</p><div className="flex space-x-3"><button onClick={() => setDeletingTimeId(null)} className="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl font-bold uppercase text-xs hover:bg-slate-700">Cancel</button><button onClick={confirmDeleteTime} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold uppercase text-xs hover:bg-red-400">Delete</button></div></div></div>}</div> : null;
       case 'manage-swimmer-events': return currentAthlete ? <div className="space-y-6"><button onClick={() => setCurrentScreen('dashboard')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-sky-400 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="glass-card p-6 rounded-2xl"><h3 className="font-display text-xl font-bold text-white uppercase mb-2">Track Your Events</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-6">Age Group: {currentAthlete.ageGroup} • {currentAthlete.selectedEventIds.length} tracked</p><div className="space-y-6">{(['SCY', 'LCM', 'SCM'] as const).map(course => {
         const courseEvents = events.filter(e => e.ageGroup === currentAthlete.ageGroup && e.course === course);
@@ -3044,7 +3070,7 @@ const App: React.FC = () => {
     <Layout 
       activeTab={activeTab} 
       setActiveTab={handleTabChange} 
-      title={activeTab === 'dashboard' ? 'Season Best' : activeTab === 'roster' ? 'Team Profile' : activeTab === 'focus' ? 'Performance' : 'Admin Tools'} 
+      title={activeTab === 'dashboard' ? 'Season Best' : activeTab === 'progress' ? 'Progress' : activeTab === 'roster' ? 'Team Profile' : activeTab === 'focus' ? 'Performance' : 'Admin Tools'} 
       user={currentUser!} 
       onLogout={handleLogout}
     >
