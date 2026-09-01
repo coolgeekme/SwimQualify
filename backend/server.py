@@ -76,6 +76,13 @@ class RegisterRequest(BaseModel):
     password: str
     role: str = "swimmer"
     teamId: Optional[str] = None
+    inviteCode: Optional[str] = None
+
+class TeamInviteRequest(BaseModel):
+    teamId: Optional[str] = None
+
+class TeamJoinRequest(BaseModel):
+    inviteCode: str
 
 class AthleteCreate(BaseModel):
     id: Optional[str] = None
@@ -242,7 +249,13 @@ async def register(req: RegisterRequest):
     
     hashed = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt())
     user_id = get_next_user_id()
-    team_id = (req.teamId or "").strip() or f"team_{user_id}"
+    team_id = (req.teamId or "").strip()
+    if not team_id and req.inviteCode:
+        invite = db.team_invites.find_one({"inviteCode": req.inviteCode.strip().lower(), "active": True})
+        if not invite:
+            raise HTTPException(status_code=404, detail="Invalid invite code")
+        team_id = invite["teamId"]
+    team_id = team_id or f"team_{user_id}"
     user = {
         "id": user_id,
         "name": req.name,
@@ -1872,6 +1885,71 @@ async def get_my_shares(request: Request):
     ))
     
     return {"shares": shares}
+
+@app.post("/api/teams/invite")
+async def create_team_invite(req: TeamInviteRequest, request: Request):
+    """Generate (or reuse) an invite code that lets another user join this team."""
+    session = get_session(request.headers.get("x-user-session"))
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    team_id = req.teamId or session.get("teamId", "team1")
+
+    # Reuse an existing active invite for the team so codes stay stable
+    existing = db.team_invites.find_one({"teamId": team_id, "active": True})
+    if existing:
+        return {
+            "inviteCode": existing["inviteCode"],
+            "teamId": team_id,
+            "created": existing.get("created")
+        }
+
+    invite_code = generate_share_code()
+    invite_doc = {
+        "inviteCode": invite_code,
+        "teamId": team_id,
+        "createdBy": session.get("id"),
+        "created": datetime.utcnow().isoformat(),
+        "active": True
+    }
+    db.team_invites.insert_one(invite_doc)
+
+    return {
+        "inviteCode": invite_code,
+        "teamId": team_id,
+        "created": invite_doc["created"]
+    }
+
+@app.post("/api/teams/join")
+async def join_team(req: TeamJoinRequest, request: Request):
+    """Move the current user's account into the team tied to an invite code."""
+    session = get_session(request.headers.get("x-user-session"))
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    invite = db.team_invites.find_one({"inviteCode": req.inviteCode.strip().lower(), "active": True})
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invalid invite code")
+
+    team_id = invite["teamId"]
+    user_id = session.get("id")
+
+    # user ids are ints in the DB, strings in the session JSON
+    query = {"id": int(user_id)} if str(user_id).isdigit() else {"id": user_id}
+    user = db.users.find_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.get("teamId") != team_id:
+        db.users.update_one(query, {"$set": {"teamId": team_id}})
+
+    return {
+        "id": str(user["id"]),
+        "name": user["name"],
+        "email": user["email"],
+        "role": user["role"],
+        "teamId": team_id
+    }
 
 # Health check
 

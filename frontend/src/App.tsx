@@ -207,6 +207,13 @@ const App: React.FC = () => {
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [sharedTeamData, setSharedTeamData] = useState<any>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [isLoadingInvite, setIsLoadingInvite] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [isJoiningTeam, setIsJoiningTeam] = useState(false);
+  const [teamJoinError, setTeamJoinError] = useState<string | null>(null);
+  const [teamJoinSuccess, setTeamJoinSuccess] = useState<string | null>(null);
 
   // Standards verification modal state
   const [showVerifyStandards, setShowVerifyStandards] = useState(false);
@@ -269,6 +276,71 @@ const App: React.FC = () => {
       setTimeout(() => setCopiedLink(false), 2000);
     }
   };
+
+  // Team invite functions
+  const handleGetInviteCode = async () => {
+    if (!currentUser) return;
+    setIsLoadingInvite(true);
+    try {
+      const response = await fetch('/api/teams/invite', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify({})
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setInviteCode(data.inviteCode);
+      }
+    } catch (err) {
+      console.error('Failed to get invite code:', err);
+    } finally {
+      setIsLoadingInvite(false);
+    }
+  };
+
+  const handleCopyInviteCode = () => {
+    if (inviteCode) {
+      navigator.clipboard.writeText(inviteCode);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    }
+  };
+
+  const handleJoinTeam = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    setIsJoiningTeam(true);
+    setTeamJoinError(null);
+    setTeamJoinSuccess(null);
+    try {
+      const response = await fetch('/api/teams/join', {
+        method: 'POST',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify({ inviteCode: joinCode.trim().toLowerCase() })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser({ ...currentUser, teamId: data.teamId });
+        setInviteCode(null);
+        setJoinCode('');
+        setTeamJoinSuccess('Joined team! Loading their swimmers and times...');
+      } else {
+        const err = await response.json();
+        setTeamJoinError(err.detail || 'Invalid invite code.');
+      }
+    } catch (err) {
+      setTeamJoinError('Failed to join team. Please try again.');
+    } finally {
+      setIsJoiningTeam(false);
+    }
+  };
+
+  // Auto-load the team's invite code when the Team tab opens
+  useEffect(() => {
+    if (activeTab === 'roster' && currentUser && !inviteCode && !isLoadingInvite) {
+      handleGetInviteCode();
+    }
+  }, [activeTab, currentUser]);
 
   const loadSharedTeam = async (code: string) => {
     try {
@@ -717,6 +789,7 @@ const App: React.FC = () => {
     const email = (formData.get('email') as string).toLowerCase().trim();
     const password = formData.get('password') as string;
     const role = formData.get('role') as Role;
+    const inviteCode = ((formData.get('inviteCode') as string) || '').trim().toLowerCase();
 
     // Check mock users first
     if (MOCK_USERS.some(u => u.email?.toLowerCase() === email)) {
@@ -728,7 +801,7 @@ const App: React.FC = () => {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role })
+        body: JSON.stringify({ name, email, password, role, ...(inviteCode ? { inviteCode } : {}) })
       });
 
       if (response.ok) {
@@ -745,7 +818,7 @@ const App: React.FC = () => {
         handleTabChange(role === Role.COACH ? 'roster' : 'dashboard');
       } else {
         const error = await response.json();
-        setRegisterError(error.error || 'Registration failed.');
+        setRegisterError(error.detail || error.error || 'Registration failed.');
       }
     } catch (err) {
       setRegisterError('Registration failed. Please try again.');
@@ -2967,6 +3040,50 @@ const App: React.FC = () => {
             <span>{isCreatingShare ? 'Creating Link...' : 'Share Team'}</span>
           </button>
         )}
+        {/* Invite Family & Coaches */}
+        <div className="glass-card p-5 rounded-2xl space-y-4">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-xl shadow-lg shadow-emerald-500/30"><Users className="w-5 h-5 text-white" /></div>
+            <div>
+              <h3 className="font-display text-lg font-bold text-white uppercase leading-none">Invite Family & Coaches</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">They can add & edit times</p>
+            </div>
+          </div>
+          {inviteCode ? (
+            <div className="flex items-center justify-between p-4 bg-slate-900/60 border border-emerald-500/30 rounded-xl">
+              <div>
+                <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Your Team Code</p>
+                <p className="font-mono text-2xl font-bold text-white tracking-[0.3em]">{inviteCode}</p>
+              </div>
+              <button onClick={handleCopyInviteCode} className="px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold text-xs uppercase flex items-center space-x-2 hover:bg-emerald-500/30 transition-all btn-press">
+                {inviteCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{inviteCopied ? 'Copied!' : 'Copy'}</span>
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleGetInviteCode} disabled={isLoadingInvite} className="w-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 p-4 rounded-xl font-bold uppercase text-xs flex items-center justify-center space-x-2 hover:bg-emerald-500/30 transition-all btn-press disabled:opacity-40">
+              <Key className="w-4 h-4" />
+              <span>{isLoadingInvite ? 'Generating...' : 'Generate Team Code'}</span>
+            </button>
+          )}
+          <div className="border-t border-white/5 pt-4">
+            <p className="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Have a code? Join another team</p>
+            <form onSubmit={handleJoinTeam} className="flex space-x-2">
+              <input
+                name="joinCode"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                placeholder="Enter invite code"
+                className="flex-1 bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 text-white font-mono font-bold uppercase outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600 placeholder:font-sans placeholder:font-normal placeholder:normal-case"
+              />
+              <button type="submit" disabled={isJoiningTeam || !joinCode.trim()} className="px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold uppercase text-xs transition-all btn-press disabled:opacity-40">
+                {isJoiningTeam ? 'Joining...' : 'Join'}
+              </button>
+            </form>
+            {teamJoinError && <p className="mt-2 text-red-400 text-xs font-bold bg-red-500/10 px-3 py-2 rounded-lg flex items-center space-x-2"><AlertCircle className="w-3 h-3 flex-shrink-0" /><span>{teamJoinError}</span></p>}
+            {teamJoinSuccess && <p className="mt-2 text-emerald-400 text-xs font-bold bg-emerald-500/10 px-3 py-2 rounded-lg flex items-center space-x-2"><CheckCircle2 className="w-3 h-3 flex-shrink-0" /><span>{teamJoinSuccess}</span></p>}
+          </div>
+        </div>
         {(currentUser?.role === Role.PARENT || currentUser?.role === Role.COACH || currentUser?.role === Role.ADMIN) && <button onClick={() => setCurrentScreen('add-athlete')} className="w-full bg-sky-500 hover:bg-sky-400 text-white p-4 rounded-2xl font-bold uppercase text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-sky-500/30 btn-press"><Plus className="w-5 h-5" /><span>Add Swimmer</span></button>}{visibleAthletes.length === 0 ? <div className="text-center py-16 glass-card rounded-2xl"><Users className="w-12 h-12 text-slate-600 mx-auto mb-4" /><p className="text-slate-400 font-bold mb-2 uppercase text-xs">No swimmers yet</p><p className="text-slate-500 text-sm">Click the button above to add your first swimmer</p></div> : visibleAthletes.map(a => <div key={a.id} onClick={() => { setSelectedAthleteId(a.id); setCurrentScreen('dashboard'); setActiveTab('dashboard'); }} className={`glass-card p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:border-sky-500/30 transition-all group ${selectedAthleteId === a.id ? 'border-sky-500/50' : ''}`}><div className="flex items-center space-x-4"><div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/30"><span className="font-display text-lg font-bold text-white">{a.name.charAt(0)}</span></div><div><p className="font-display text-lg font-bold text-white uppercase leading-none mb-1">{a.name}</p><p className="text-[10px] text-slate-500 font-bold uppercase">{a.ageGroup} • {a.gender === 'M' ? 'Male' : 'Female'}</p></div></div><ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-sky-400 transition-colors" /></div>)}</div>;
       case 'admin': return renderAdmin();
       case 'add-time': return selectedEventId && currentAthlete ? <div className="max-w-md mx-auto space-y-6"><button onClick={() => setCurrentScreen('event-detail')} className="flex items-center text-slate-500 font-bold text-xs uppercase tracking-widest hover:text-sky-400 transition-colors"><ChevronLeft className="w-4 h-4 mr-1" /> Back</button><div className="glass-card p-8 rounded-2xl space-y-6"><div className="border-b border-white/5 pb-6 mb-2"><div className="flex items-center space-x-3 mb-2"><div className="bg-gradient-to-br from-sky-500 to-blue-600 p-3 rounded-xl shadow-lg shadow-sky-500/30"><Clock className="w-5 h-5 text-white" /></div><h3 className="font-display text-2xl font-bold text-white uppercase">Add Result</h3></div><div className="flex items-center space-x-2 mt-1"><span className="font-display font-bold text-white text-sm uppercase">{events.find(e => e.id === selectedEventId)?.name}</span><span className="w-1 h-1 bg-slate-600 rounded-full"></span><span className="text-xs font-bold text-sky-400 uppercase tracking-widest">{currentAthlete.name}</span></div></div><form onSubmit={handleAddTime} className="space-y-6"><div className="flex items-center space-x-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl"><input name="isDQ" type="checkbox" id="isDQ" className="w-5 h-5 rounded border-red-500/50 text-red-500 focus:ring-red-500 bg-slate-900" /><label htmlFor="isDQ" className="text-sm font-bold text-red-400 uppercase">Disqualified (DQ)</label></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Time (mm:ss.xx)</label><input name="time" type="text" placeholder="1:05.42" className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Date</label><input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all" /></div><div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Meet Name (optional)</label><input name="meetName" type="text" placeholder="e.g. Regional Championships" className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 font-bold text-white outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" /></div><button type="submit" className="w-full bg-gradient-to-r from-sky-500 to-blue-600 text-white py-4 rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-sky-500/30 hover:shadow-sky-500/40 transition-all btn-press">Save Record</button></form></div></div> : null;
@@ -3040,6 +3157,7 @@ const App: React.FC = () => {
             <input name="name" type="text" placeholder="Your Name" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
             <input name="email" type="email" placeholder="email@example.com" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
             <input name="password" type="password" placeholder="Password" required minLength={6} className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all placeholder:text-slate-600" />
+            <input name="inviteCode" type="text" placeholder="Invite Code (optional — join a family team)" className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-mono font-bold uppercase outline-none focus:border-emerald-500/50 transition-all placeholder:text-slate-600 placeholder:font-sans placeholder:font-normal placeholder:normal-case" />
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest text-left">I am a...</label>
               <select name="role" required className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-4 text-white font-medium outline-none focus:border-sky-500/50 transition-all">
