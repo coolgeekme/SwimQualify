@@ -98,6 +98,14 @@ class TestInviteFlow:
         r = client.post("/api/teams/join", json={"inviteCode": "abcdefgh"})
         assert r.status_code == 401
 
+    def test_join_with_userId_format_session(self, team):
+        """Workspace frontends send {userId, teamId, role} — join must still work."""
+        outsider = register("UserIDFormat", f"uidfmt-{os.getpid()}@swim.test")
+        thin_session = session({"userId": outsider["id"], "teamId": outsider["teamId"], "role": "parent"})
+        r = client.post("/api/teams/join", json={"inviteCode": team["inviteCode"]}, headers=thin_session)
+        assert r.status_code == 200
+        assert r.json()["teamId"] == team["teamId"]
+
     def test_join_with_bad_code_404(self, team):
         r = client.post("/api/teams/join", json={"inviteCode": "zzzzzzzz"}, headers=session(team["owner"]))
         assert r.status_code == 404

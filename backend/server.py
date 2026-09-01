@@ -1908,7 +1908,7 @@ async def create_team_invite(req: TeamInviteRequest, request: Request):
     invite_doc = {
         "inviteCode": invite_code,
         "teamId": team_id,
-        "createdBy": session.get("id"),
+        "createdBy": session.get("userId") or session.get("id"),
         "created": datetime.utcnow().isoformat(),
         "active": True
     }
@@ -1932,7 +1932,8 @@ async def join_team(req: TeamJoinRequest, request: Request):
         raise HTTPException(status_code=404, detail="Invalid invite code")
 
     team_id = invite["teamId"]
-    user_id = session.get("id")
+    # workspace frontends send {userId, teamId, role}; older ones send the full user {id, ...}
+    user_id = session.get("userId") or session.get("id")
 
     # user ids are ints in the DB, strings in the session JSON
     query = {"id": int(user_id)} if str(user_id).isdigit() else {"id": user_id}
