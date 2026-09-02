@@ -24,15 +24,12 @@ from fastapi.testclient import TestClient
 
 import server
 
-# Swap the real (unreachable) Mongo for an in-memory mongomock DB
-server.client = mongomock.MongoClient()
-server.db = server.client[os.environ["DB_NAME"]]
-
 client = TestClient(server.app)
 
 
 def setup_module():
-    server.db.client.drop_database(server.db.name)
+    server.client = mongomock.MongoClient()
+    server.db = server.client[os.environ["DB_NAME"]]
 
 
 def teardown_module():
