@@ -124,6 +124,8 @@ class StandardCreate(BaseModel):
     course: str
     cutTimeSeconds: float
     season: str
+    verificationScore: Optional[str] = None
+    verificationConfidence: Optional[str] = None
 
 class BulkStandardsCreate(BaseModel):
     standards: List[StandardCreate]
