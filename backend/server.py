@@ -328,6 +328,12 @@ async def get_users():
 @app.get("/api/events")
 async def get_events(x_user_session: Optional[str] = Header(None)):
     team_id = get_team_id(get_session(x_user_session))
+    # Self-heal: make sure events exist for the age groups the team's swimmers are in,
+    # so an athlete who just aged up never sees an empty event list.
+    for a in db.athletes.find({"teamId": team_id}):
+        derived = compute_age_group(a.get("dob"))
+        if derived:
+            ensure_events_for_age_group(team_id, derived)
     events = list(db.events.find({"teamId": team_id}).limit(500))
     return [strip_mongo_id(e) for e in events]
 
@@ -487,15 +493,22 @@ async def dedupe_events(dry_run: bool = False, x_user_session: Optional[str] = H
 async def get_athletes(x_user_session: Optional[str] = Header(None)):
     session = get_session(x_user_session)
     team_id = session.get("teamId", "team1") if session else "team1"
+    reconcile_athlete_age_groups(team_id)
     athletes = list(db.athletes.find({"teamId": team_id}))
     return [strip_mongo_id(a) for a in athletes]
 
 @app.post("/api/athletes")
 async def create_athlete(athlete: AthleteCreate, x_user_session: Optional[str] = Header(None)):
     session = get_session(x_user_session)
+    team_id = session.get("teamId", "team1") if session else "team1"
     athlete_dict = athlete.model_dump()
     athlete_dict["id"] = athlete_dict.get("id") or f"a_{int(datetime.utcnow().timestamp() * 1000)}"
-    athlete_dict["teamId"] = session.get("teamId", "team1") if session else "team1"
+    # Age group is derived from DOB, never trusted from the client
+    derived = compute_age_group(athlete_dict.get("dob"))
+    if derived:
+        athlete_dict["ageGroup"] = derived
+        ensure_events_for_age_group(team_id, derived)
+    athlete_dict["teamId"] = team_id
     athlete_dict["createdAt"] = datetime.utcnow()
     db.athletes.insert_one(athlete_dict)
     return strip_mongo_id(athlete_dict)
@@ -503,12 +516,24 @@ async def create_athlete(athlete: AthleteCreate, x_user_session: Optional[str] =
 @app.put("/api/athletes/{athlete_id}")
 async def update_athlete(athlete_id: str, athlete: AthleteCreate, x_user_session: Optional[str] = Header(None)):
     team_id = get_team_id(get_session(x_user_session))
+    existing = db.athletes.find_one({"id": athlete_id, "teamId": team_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Athlete not found")
     update_data = {k: v for k, v in athlete.model_dump().items() if v is not None}
+    # Re-derive age group from the (possibly new) DOB
+    dob = update_data.get("dob", existing.get("dob"))
+    derived = compute_age_group(dob)
+    if derived and derived != existing.get("ageGroup"):
+        ensure_events_for_age_group(team_id, derived)
+        update_data["ageGroup"] = derived
+        update_data["selectedEventIds"] = remap_selected_events(existing, derived)
+        update_data["previousAgeGroup"] = existing.get("ageGroup")
+        update_data["ageGroupChangedAt"] = datetime.utcnow().isoformat()
+    elif derived:
+        update_data["ageGroup"] = derived
     result = db.athletes.find_one_and_update(
         {"id": athlete_id, "teamId": team_id}, {"$set": update_data}, return_document=True
     )
-    if not result:
-        raise HTTPException(status_code=404, detail="Athlete not found")
     return strip_mongo_id(result)
 
 @app.delete("/api/athletes/{athlete_id}")
@@ -518,6 +543,120 @@ async def delete_athlete(athlete_id: str, x_user_session: Optional[str] = Header
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Athlete not found")
     return {"success": True}
+
+
+# ==================== AGE-GROUP LIFECYCLE ====================
+# A swimmer's qualifying bracket follows their age. Groups are derived from DOB
+# (age on the reference date, default today) and never trusted from the client.
+# When a swimmer ages into a new group, their selected events are remapped to the
+# same real events (name/distance/stroke/course) in the new group, and the team is
+# ensured to have events (and later standards) for that group. Times are untouched —
+# a 11-12 time does not count toward a 13-14 cut (that matches USA Swimming rules).
+
+def compute_age_group(dob: Optional[str], ref_date=None) -> Optional[str]:
+    """USA Swimming-style age bracket from a YYYY-MM-DD dob (age on ref_date, default today)."""
+    if not dob:
+        return None
+    try:
+        birth = datetime.strptime(dob[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+    ref = ref_date or datetime.utcnow().date()
+    age = ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
+    if age <= 10:
+        return "10U"
+    if age <= 12:
+        return "11-12"
+    if age <= 14:
+        return "13-14"
+    if age <= 16:
+        return "15-16"
+    return "17-18"
+
+
+def _age_event_specs(team_id: str):
+    """Unique (course, name, distance, stroke-full) event specs the team already uses."""
+    specs = {}
+    for e in db.events.find({"teamId": team_id}):
+        short = _canonical_stroke_short(e.get("stroke") or e.get("name", ""))
+        key = (e.get("course"), e.get("distance"), short)
+        specs[key] = (e.get("name"), e.get("distance"), _STROKE_FULL[short])
+    if not specs:
+        for name, dist, stroke in DEFAULT_EVENT_NAMES:
+            specs[("SCY", dist, _canonical_stroke_short(stroke))] = (name, dist, stroke)
+    return specs
+
+
+def ensure_events_for_age_group(team_id: str, age_group: str) -> dict:
+    """Create the team's standard events for an age group (mirrors other groups). Idempotent."""
+    if not age_group:
+        return {"created": 0, "ageGroup": age_group}
+    has = db.events.count_documents({"teamId": team_id, "ageGroup": age_group})
+    if has > 0:
+        return {"created": 0, "ageGroup": age_group, "already": True}
+    created = 0
+    idx = db.events.count_documents({"teamId": team_id})
+    for (course, dist, short), (name, _, stroke) in sorted(_age_event_specs(team_id).items()):
+        db.events.insert_one({
+            "id": f"e_{team_id}_{int(datetime.utcnow().timestamp() * 1000)}_{idx}",
+            "name": name,
+            "distance": dist,
+            "stroke": stroke,
+            "course": course,
+            "ageGroup": age_group,
+            "teamId": team_id,
+            "createdAt": datetime.utcnow(),
+        })
+        created += 1
+        idx += 1
+    return {"created": created, "ageGroup": age_group}
+
+
+def remap_selected_events(athlete: dict, new_group: str) -> list:
+    """Swap an athlete's selectedEventIds to the same real events in new_group."""
+    selected = athlete.get("selectedEventIds") or []
+    if not selected or not athlete.get("teamId"):
+        return selected
+    team_id = athlete["teamId"]
+    by_id = {e["id"]: e for e in db.events.find({"teamId": team_id, "id": {"$in": selected}})}
+    out = []
+    for eid in selected:
+        ev = by_id.get(eid)
+        if not ev or ev.get("ageGroup") == new_group:
+            out.append(eid)
+            continue
+        target = db.events.find_one({
+            "teamId": team_id, "ageGroup": new_group,
+            "name": ev.get("name"), "course": ev.get("course"),
+            "distance": ev.get("distance"),
+        })
+        out.append(target["id"] if target else eid)
+    return out
+
+
+def reconcile_athlete_age_groups(team_id: str) -> list:
+    """Flip athletes whose stored ageGroup no longer matches their DOB-derived group."""
+    moves = []
+    for a in db.athletes.find({"teamId": team_id}):
+        derived = compute_age_group(a.get("dob"))
+        if not derived:
+            continue
+        stored = a.get("ageGroup")
+        if stored == derived:
+            continue
+        ensure_events_for_age_group(team_id, derived)
+        new_ids = remap_selected_events(a, derived)
+        db.athletes.update_one(
+            {"id": a["id"]},
+            {"$set": {
+                "ageGroup": derived,
+                "selectedEventIds": new_ids,
+                "previousAgeGroup": stored,
+                "ageGroupChangedAt": datetime.utcnow().isoformat(),
+            }},
+        )
+        moves.append({"id": a["id"], "name": a.get("name"), "from": stored, "to": derived})
+    return moves
 
 # Time Entries Endpoints
 @app.get("/api/times")
