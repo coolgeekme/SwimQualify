@@ -117,6 +117,59 @@ class TestAgeLifecycle:
         assert all(e["ageGroup"] == "13-14" for e in remapped)
         assert {e["name"] for e in remapped} == {e["name"] for e in old_events[:2]}
 
+    def test_track_age_group_persists_and_clears(self):
+        user = register()
+        h = session(user)
+        r = client.post(
+            "/api/athletes",
+            json={"name": "Tracker", "dob": "2013-07-15", "gender": "M", "ageGroup": "13-14", "trackAgeGroup": "15-16"},
+            headers=h,
+        )
+        assert r.status_code == 200, r.text
+        aid = r.json()["id"]
+        assert r.json()["trackAgeGroup"] == "15-16"
+
+        # pin to 13-14 via PUT
+        r = client.put(f"/api/athletes/{aid}", json={
+            "name": "Tracker", "dob": "2013-07-15", "gender": "M",
+            "ageGroup": "13-14", "trackAgeGroup": "13-14",
+        }, headers=h)
+        assert r.status_code == 200
+        assert r.json()["trackAgeGroup"] == "13-14"
+
+        # 'auto' clears the pin back to None
+        r = client.put(f"/api/athletes/{aid}", json={
+            "name": "Tracker", "dob": "2013-07-15", "gender": "M",
+            "ageGroup": "13-14", "trackAgeGroup": "auto",
+        }, headers=h)
+        assert r.status_code == 200
+        assert r.json().get("trackAgeGroup") is None
+
+    def test_reconcile_leaves_track_group_alone(self):
+        user = register()
+        h = session(user)
+        # 12yo with stale 10U group + pin to 13-14: reconcile flips real group, keeps pin
+        server.db.athletes.insert_one({
+            "id": "a_pin_" + str(os.getpid()), "name": "Pinned", "dob": "2013-09-22",
+            "gender": "F", "ageGroup": "10U", "selectedEventIds": [],
+            "trackAgeGroup": "13-14", "teamId": user["teamId"],
+        })
+        athletes = client.get("/api/athletes", headers=h).json()
+        a = next(x for x in athletes if x["id"].startswith("a_pin_"))
+        assert a["ageGroup"] == "11-12", "dob 2013-09-22 is 12 today -> 11-12"
+        assert a["trackAgeGroup"] == "13-14", "reconcile must not touch the manual pin"
+
+    def test_track_age_group_garbage_cleared(self):
+        user = register()
+        h = session(user)
+        r = client.post(
+            "/api/athletes",
+            json={"name": "Garbage", "dob": "2013-07-15", "gender": "M", "ageGroup": "13-14", "trackAgeGroup": "varsity"},
+            headers=h,
+        )
+        assert r.status_code == 200
+        assert r.json().get("trackAgeGroup") is None
+
     def test_update_dob_remaps(self):
         user = register()
         h = session(user)

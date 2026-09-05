@@ -63,6 +63,31 @@ const getSessionHeaders = (user: User | null) => ({
   ...(user ? { 'X-User-Session': JSON.stringify({ userId: user.id, teamId: user.teamId, role: user.role }) } : {})
 });
 
+// Standards an athlete's event is compared against. Honors the athlete's
+// trackAgeGroup pin (e.g. a 12yo watching 13-14 cuts): the same real event
+// exists in every age group, so we match the twin event by name/course/distance
+// and use ITS cuts. Without a pin this is identical to matching by event id.
+const getTrackedStandards = (athlete: Athlete | null, event: Event, events: Event[], standards: QualifyingStandard[]): QualifyingStandard[] => {
+  if (!athlete || !event) return [];
+  const pin = athlete.trackAgeGroup && athlete.trackAgeGroup !== athlete.ageGroup ? athlete.trackAgeGroup : null;
+  let target = event;
+  if (pin) {
+    target = events.find(e =>
+      e.name === event.name && e.course === event.course &&
+      e.distance === event.distance && e.ageGroup === pin
+    ) || event;
+  }
+  let matched = standards.filter(s => s.eventId === target.id && s.gender === athlete.gender);
+  if (matched.length === 0) {
+    matched = standards.filter(s => {
+      const sEvent = events.find(e => e.id === s.eventId);
+      return sEvent && sEvent.name === target.name && sEvent.course === target.course &&
+        sEvent.ageGroup === target.ageGroup && s.gender === athlete.gender;
+    });
+  }
+  return matched;
+};
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
@@ -418,6 +443,26 @@ const App: React.FC = () => {
       });
     } catch (err) {
       console.error('Failed to update athlete events:', err);
+    }
+  };
+
+  // Pin which age group's cuts this athlete compares against ('' = auto/current group)
+  const handleSetTrackGroup = async (group: string) => {
+    if (!currentAthlete || !currentUser) return;
+    const pinned = group === 'auto' ? undefined : group;
+    setAthletes(prev => prev.map(a => a.id === currentAthlete.id ? { ...a, trackAgeGroup: pinned } : a));
+    try {
+      const res = await fetch(`/api/athletes/${currentAthlete.id}`, {
+        method: 'PUT',
+        headers: getSessionHeaders(currentUser),
+        body: JSON.stringify({ ...currentAthlete, trackAgeGroup: group === 'auto' ? '' : group })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setAthletes(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
+      }
+    } catch (err) {
+      console.error('Failed to update track group:', err);
     }
   };
 
@@ -1999,16 +2044,7 @@ const App: React.FC = () => {
       const aTime = aBestEntry?.timeSeconds;
       const bTime = bBestEntry?.timeSeconds;
       
-      const getStandardsForEvent = (ev: Event) => {
-        let matched = standards.filter(s => s.eventId === ev.id && s.gender === currentAthlete.gender && s.ageGroup === ev.ageGroup);
-        if (matched.length === 0) {
-          matched = standards.filter(s => {
-            const sEvent = events.find(e => e.id === s.eventId);
-            return sEvent && sEvent.name === ev.name && sEvent.course === ev.course && s.gender === currentAthlete.gender && s.ageGroup === ev.ageGroup;
-          });
-        }
-        return matched;
-      };
+      const getStandardsForEvent = (ev: Event) => getTrackedStandards(currentAthlete, ev, events, standards);
       const aStandards = getStandardsForEvent(a);
       const bStandards = getStandardsForEvent(b);
       
@@ -2084,6 +2120,30 @@ const App: React.FC = () => {
                 if (!move) return null;
                 return <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mt-1">Moves to {move.group} on {move.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>;
               })()}
+              <div className="flex flex-wrap items-center gap-1 mt-2" data-testid="track-group-selector">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mr-0.5">Cuts:</span>
+                {['auto', '10U', '11-12', '13-14', '15-16', '17-18'].map(g => {
+                  const active = g === 'auto' ? !currentAthlete.trackAgeGroup : currentAthlete.trackAgeGroup === g;
+                  const label = g === 'auto' ? `Auto (${currentAthlete.ageGroup})` : g;
+                  return (
+                    <button
+                      key={g}
+                      onClick={() => handleSetTrackGroup(g)}
+                      data-testid={`track-group-${g}`}
+                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all btn-press ${
+                        active
+                          ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                          : 'bg-slate-800/60 text-slate-400 border border-white/5 hover:text-white hover:border-sky-500/30'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {currentAthlete.trackAgeGroup && currentAthlete.trackAgeGroup !== currentAthlete.ageGroup && (
+                <p className="text-[9px] font-bold text-sky-400 uppercase tracking-widest mt-1">Watching {currentAthlete.trackAgeGroup} cuts — a time only counts once it's swum in {currentAthlete.trackAgeGroup} meets</p>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -2256,19 +2316,9 @@ const App: React.FC = () => {
                 <DashboardCard 
                   event={event} 
                   bestTime={getBestTime(event.id, currentAthlete.id)} 
-                  standards={(() => {
-                    // Primary: match by eventId
-                    let matched = standards.filter(s => s.eventId === event.id && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup);
-                    // Fallback: match by event name + course if no ID match found
-                    if (matched.length === 0) {
-                      matched = standards.filter(s => {
-                        const sEvent = events.find(e => e.id === s.eventId);
-                        return sEvent && sEvent.name === event.name && sEvent.course === event.course && s.gender === currentAthlete.gender && s.ageGroup === event.ageGroup;
-                      });
-                    }
-                    return matched;
-                  })()} 
+                  standards={getTrackedStandards(currentAthlete, event, events, standards)} 
                   athleteGender={currentAthlete.gender} 
+                  standardsGroup={currentAthlete.trackAgeGroup && currentAthlete.trackAgeGroup !== event.ageGroup ? currentAthlete.trackAgeGroup : undefined}
                   onClick={() => { setSelectedEventId(event.id); setCurrentScreen('event-detail'); }}
                   onEditStandard={handleEditStandard}
                   onCreateStandard={(region, cutTime) => handleCreateStandard(event.id, event.ageGroup, currentAthlete.gender, event.course, region, cutTime)}

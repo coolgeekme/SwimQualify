@@ -45,6 +45,7 @@ export interface Athlete {
   gender: 'M' | 'F';
   ageGroup: string;
   selectedEventIds: string[]; // IDs of events this swimmer is tracking
+  trackAgeGroup?: string; // optional override: which age group's cuts to compare against (default: ageGroup)
 }
 
 export interface Event {

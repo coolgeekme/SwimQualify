@@ -93,6 +93,7 @@ class AthleteCreate(BaseModel):
     gender: str
     ageGroup: str
     selectedEventIds: List[str] = []
+    trackAgeGroup: Optional[str] = None  # which group's cuts to compare against (default: derived ageGroup)
 
 class EventCreate(BaseModel):
     id: Optional[str] = None
@@ -508,6 +509,7 @@ async def create_athlete(athlete: AthleteCreate, x_user_session: Optional[str] =
     if derived:
         athlete_dict["ageGroup"] = derived
         ensure_events_for_age_group(team_id, derived)
+    athlete_dict["trackAgeGroup"] = _clean_track_age_group(athlete_dict.get("trackAgeGroup"))
     athlete_dict["teamId"] = team_id
     athlete_dict["createdAt"] = datetime.utcnow()
     db.athletes.insert_one(athlete_dict)
@@ -520,6 +522,9 @@ async def update_athlete(athlete_id: str, athlete: AthleteCreate, x_user_session
     if not existing:
         raise HTTPException(status_code=404, detail="Athlete not found")
     update_data = {k: v for k, v in athlete.model_dump().items() if v is not None}
+    # trackAgeGroup is a preference; explicit payload values win ('' / 'auto' clears it)
+    if "trackAgeGroup" in athlete.model_fields_set:
+        update_data["trackAgeGroup"] = _clean_track_age_group(athlete.trackAgeGroup)
     # Re-derive age group from the (possibly new) DOB
     dob = update_data.get("dob", existing.get("dob"))
     derived = compute_age_group(dob)
@@ -552,6 +557,19 @@ async def delete_athlete(athlete_id: str, x_user_session: Optional[str] = Header
 # same real events (name/distance/stroke/course) in the new group, and the team is
 # ensured to have events (and later standards) for that group. Times are untouched —
 # a 11-12 time does not count toward a 13-14 cut (that matches USA Swimming rules).
+# `trackAgeGroup` is an optional per-athlete OVERRIDE of which group's cuts to
+# compare against (e.g. a 12yo watching 13-14 cuts). It is a preference, never
+# auto-derived, and is left alone by reconcile.
+
+def _clean_track_age_group(value) -> Optional[str]:
+    """Normalize a trackAgeGroup override; 'auto'/'current'/empty -> None."""
+    if value is None:
+        return None
+    v = str(value).strip().lower()
+    if v in ("", "auto", "current", "none"):
+        return None
+    norm = normalize_age_group(str(value))
+    return norm if norm in ("10U", "11-12", "13-14", "15-16", "17-18") else None
 
 def compute_age_group(dob: Optional[str], ref_date=None) -> Optional[str]:
     """USA Swimming-style age bracket from a YYYY-MM-DD dob (age on ref_date, default today)."""

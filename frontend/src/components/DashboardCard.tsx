@@ -9,13 +9,14 @@ interface Props {
   bestTime: TimeEntry | undefined;
   standards: QualifyingStandard[];
   athleteGender: 'M' | 'F';
+  standardsGroup?: string; // when watching another group's cuts, e.g. '13-14'
   onClick: () => void;
   onEditStandard?: (standardId: string, newTime: number) => void;
   onCreateStandard?: (region: 'Regional' | 'State', cutTimeSeconds: number) => void;
   verification?: { overallScore: string; confidence: string; regionalScore: string; stateScore: string; sources: any[] } | null;
 }
 
-const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGender, onClick, onEditStandard, onCreateStandard, verification }) => {
+const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGender, standardsGroup, onClick, onEditStandard, onCreateStandard, verification }) => {
   const [editingCut, setEditingCut] = useState<string | null>(null); // 'regional' | 'state' | null
   const [editValue, setEditValue] = useState('');
 
@@ -113,7 +114,7 @@ const DashboardCard: React.FC<Props> = ({ event, bestTime, standards, athleteGen
         <div className="flex items-center space-x-2">
           {qualified && (type === 'state' ? <Trophy className="w-3 h-3 text-amber-400" /> : <CheckCircle2 className="w-3 h-3 text-green-400" />)}
           <span className={`font-medium ${qualified ? (type === 'state' ? 'text-amber-400' : 'text-green-400') : 'text-slate-500'}`}>
-            {label}:
+            {standardsGroup ? `${standardsGroup} ${label}` : label}:
           </span>
         </div>
         <div className="flex items-center space-x-2">
