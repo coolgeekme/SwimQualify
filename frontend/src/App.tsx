@@ -2141,9 +2141,22 @@ const App: React.FC = () => {
                   );
                 })}
               </div>
-              {currentAthlete.trackAgeGroup && currentAthlete.trackAgeGroup !== currentAthlete.ageGroup && (
-                <p className="text-[9px] font-bold text-sky-400 uppercase tracking-widest mt-1">Watching {currentAthlete.trackAgeGroup} cuts — a time only counts once it's swum in {currentAthlete.trackAgeGroup} meets</p>
-              )}
+              {currentAthlete.trackAgeGroup && currentAthlete.trackAgeGroup !== currentAthlete.ageGroup && (() => {
+                // The time carries: once the swimmer ages into the pinned group, times that
+                // beat those cuts ARE their qualifying times (SWIMS entry is time-vs-standard).
+                const firstAge = { '11-12': 11, '13-14': 13, '15-16': 15, '17-18': 17 }[currentAthlete.trackAgeGroup] || null;
+                const dob = currentAthlete.dob ? new Date(currentAthlete.dob) : null;
+                const first = currentAthlete.name.split(' ')[0];
+                let msg = `Watching ${currentAthlete.trackAgeGroup} cuts — targets until ${first} swims ${currentAthlete.trackAgeGroup}`;
+                if (firstAge && dob) {
+                  const enters = new Date(dob.getFullYear() + firstAge, dob.getMonth(), dob.getDate());
+                  if (enters > new Date()) {
+                    msg += ` (${enters.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+                  }
+                }
+                msg += '. A time that beats them counts once they age in.';
+                return <p className="text-[9px] font-bold text-sky-400 uppercase tracking-widest mt-1">{msg}</p>;
+              })()}
             </div>
           </div>
           <div className="flex items-center space-x-2">
