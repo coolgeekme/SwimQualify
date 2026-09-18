@@ -56,9 +56,13 @@ except Exception as e:
     print(f"WARN: teamId backfill skipped: {e}")
 
 
-# OpenAI config
+# LLM config (OpenAI-compatible). Defaults target OpenAI; set
+# OPENAI_BASE_URL + OPENAI_API_KEY + AI_MODEL/AI_VISION_MODEL to use DeepSeek
+# (https://api.deepseek.com/v1, deepseek-flash) or any other OpenAI-compatible API.
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+AI_MODEL = os.environ.get("AI_MODEL", "gpt-4o-mini")
+AI_VISION_MODEL = os.environ.get("AI_VISION_MODEL", AI_MODEL)
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 
 # Anthropic Claude config (more accurate for document reading)
@@ -830,7 +834,7 @@ async def stroke_insights(req: StrokeInsightsRequest):
             f"{OPENAI_BASE_URL}/chat/completions",
             headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "gpt-4o-mini",
+                "model": AI_MODEL,
                 "messages": [
                     {"role": "system", "content": """You are a high-performance swim coach analyzing youth swimmer data. 
 Return ONLY a valid JSON object where:
@@ -1604,7 +1608,7 @@ async def analyze_document(req: DocumentAnalyzeRequest):
             f"{OPENAI_BASE_URL}/chat/completions",
             headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "gpt-4o-mini",
+                "model": AI_VISION_MODEL,
                 "messages": [
                     {"role": "user", "content": [
                         {"type": "text", "text": prompt},
@@ -1741,7 +1745,7 @@ Critical instructions:
             f"{OPENAI_BASE_URL}/chat/completions",
             headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "gpt-4o",
+                "model": AI_VISION_MODEL,
                 "messages": [
                     {"role": "user", "content": [
                         {"type": "text", "text": prompt},
