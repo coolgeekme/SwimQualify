@@ -62,7 +62,10 @@ except Exception as e:
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 AI_MODEL = os.environ.get("AI_MODEL", "gpt-4o-mini")
-AI_VISION_MODEL = os.environ.get("AI_VISION_MODEL", AI_MODEL)
+# Vision default stays gpt-4o — it is the model the heat-sheet reader was validated
+# against. Do NOT let it inherit AI_MODEL or a cheaper default silently degrades
+# heat-sheet accuracy.
+AI_VISION_MODEL = os.environ.get("AI_VISION_MODEL", "gpt-4o")
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 
 # Anthropic Claude config (more accurate for document reading)
@@ -1637,153 +1640,257 @@ class HeatSheetAnalyzeRequest(BaseModel):
     mimeType: str = "image/png"
     swimmerName: Optional[str] = None
 
+# ==================== HEAT SHEET READING (tiled, orientation-aware) ====================
+# Why this is NOT a single vision call — measured Sep 2026 against real phone photos
+# of a Hy-Tek meet program (see references/heat-sheet-reading.md):
+#   * full page, low res, wrong orientation -> HALLUCINATED rows
+#     (invented "S. Buehler" with sequential times 1:30.10, 1:30.12, ...)
+#   * full page, high res -> still MISSED rows; heat sheets are multi-column, so a
+#     whole-column read only ever saw part of the page.
+# Overlapping GRID tiles fixed both (27 -> 66 rows read on the same page).
+# Do not collapse this back into one call.
+
+HEAT_TILE_PROMPT = """You are reading ONE crop of a photographed swim meet heat sheet.
+
+Report ONLY swimmer rows ACTUALLY VISIBLE in this crop.
+- NEVER invent, guess, or complete a name or a time. If you cannot read it, use null.
+- Do NOT pad the list. If there are no swimmer rows here, return {"rows": []}.
+- Read the name exactly as printed, in "Last, First" form.
+
+A swimmer row looks like:  lane | Last, First | age | TEAM-AZ | seed time
+Rows sit underneath an "Event #NN ..." header and a "Heat N of M Finals" line.
+For EACH row, report the nearest Event header and Heat line ABOVE that row.
+
+Return ONLY this JSON:
+{"rows": [{
+  "lane": "<1-10 or null>",
+  "name": "<Last, First as printed, or null>",
+  "age": "<number or null>",
+  "team": "<TEAM-XX or null>",
+  "time": "<seed time exactly as printed, or null>",
+  "event": "<nearest Event # header above this row, or null>",
+  "heat": "<nearest Heat N of M line above this row, or null>"
+}]}"""
+
+HEAT_ORIENT_PROMPT = """This is a photographed page of text (a swim heat sheet).
+It may be rotated. Reply with ONLY the number of degrees CLOCKWISE needed to make the
+text upright: one of 0, 90, 180, 270. Reply with just the number."""
+
+# Grid tiles read ROWS well but slice straight through the "Event #NN" headers, so
+# most rows come back with a heat and no event. This one extra full-page call
+# recovers just the headers (a far easier read than all the rows).
+HEAT_MAP_PROMPT = """This is one page of a swim meet program (heat sheet).
+
+List, IN ORDER down the page, every Event header and the "Heat N of M" lines
+belonging to it. Read only what is ACTUALLY VISIBLE — never invent an event.
+
+Return ONLY this JSON:
+{"blocks": [{"event": "<the Event # header line exactly as printed>",
+             "heats": ["<Heat 1 of 9 Finals>", "<Heat 2 of 9 Finals>"]}]}"""
+
+
+async def _heat_vision_json(client, image_b64, prompt, model, max_tokens=2500):
+    """One vision call -> parsed JSON object (or {'error': ...})."""
+    resp = await client.post(
+        f"{OPENAI_BASE_URL}/chat/completions",
+        headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+            ]}],
+            "max_tokens": max_tokens,
+            "temperature": 0,
+        },
+        timeout=180.0,
+    )
+    if resp.status_code != 200:
+        return {"error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    text = (resp.json().get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if not m:
+        return {"error": "no JSON in response", "raw": text[:200]}
+    try:
+        return json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        return {"error": f"bad JSON: {e}", "raw": text[:200]}
+
+
+def _decode_upload(image_b64, max_dim=2400):
+    """Base64 -> PIL RGB image, downscaled to max_dim on the long side."""
+    from io import BytesIO
+    raw = base64.b64decode(image_b64)
+    img = Image.open(BytesIO(raw)).convert("RGB")
+    img.thumbnail((max_dim, max_dim))
+    return img
+
+
+def _b64_jpeg(img, quality=92):
+    from io import BytesIO
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=quality)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def _tile_grid(img, cols=3, rows=3, overlap=0.10):
+    """Overlapping grid tiles — heat sheets are multi-column, so column bands alone
+    drop whole columns."""
+    w, h = img.size
+    cw, ch = w / cols, h / rows
+    out = []
+    for r in range(rows):
+        for c in range(cols):
+            x1 = max(0, int(c * cw - cw * overlap))
+            x2 = min(w, int((c + 1) * cw + cw * overlap))
+            y1 = max(0, int(r * ch - ch * overlap))
+            y2 = min(h, int((r + 1) * ch + ch * overlap))
+            out.append(img.crop((x1, y1, x2, y2)))
+    return out
+
+
+def _dedupe_heat_rows(rows):
+    """Drop rows repeated across overlapping tiles.
+
+    Keyed on printed name only — the same real row read twice must collapse even if
+    the model transcribed a detail differently between reads."""
+    seen, out = set(), []
+    for r in rows:
+        name = re.sub(r"[^a-z]", "", (r.get("name") or "").lower())
+        if not name:
+            continue
+        lane = (r.get("lane") or "").strip()
+        heat = re.sub(r"\s+", "", (r.get("heat") or "")).lower()
+        key = (name, lane, heat)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(r)
+    return out
+
+
 @app.post("/api/ai/extract-heat-times")
 async def extract_heat_times(req: HeatSheetAnalyzeRequest):
-    """Extract swim times from a heat sheet screenshot with AI-powered event name matching"""
+    """Extract Event/Heat/Lane assignments from a heat-sheet photo.
+
+    Tiled + orientation-corrected + hallucination-guarded. Returns one entry per
+    swimmer row with the printed name, normalized event, heat and lane.
+    """
     if not OPENAI_API_KEY:
-        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
-    
-    swimmer_context = f" Pay special attention to times for swimmer: {req.swimmerName}." if req.swimmerName else ""
-    
-    # Standard event names used in the app (all courses)
-    standard_events = [
-        "25 Free", "25 Back", "25 Fly", "25 Breast",
-        "50 Free", "100 Free", "200 Free", "400 Free", "500 Free", "800 Free", "1500 Free",
-        "50 Back", "100 Back", "200 Back",
-        "50 Breast", "100 Breast", "200 Breast",
-        "50 Fly", "100 Fly", "200 Fly",
-        "100 IM", "200 IM", "400 IM"
-    ]
-    
-    prompt = f"""Analyze this swimming results image and extract ALL swim times visible.{swimmer_context}
+        raise HTTPException(status_code=500, detail="AI service unavailable")
 
-This could be a heat sheet, Meet Mobile screenshot, swim meet results, or any swimming results format.
+    try:
+        img = _decode_upload(req.imageData, max_dim=2400)
+    except Exception as e:
+        return {"success": False, "times": [], "error": f"Could not read that image: {e}"}
 
-IMPORTANT: Extract EVERY event and time you can see in the image.
-
-For event names, normalize them to match these standard formats:
-{', '.join(standard_events)}
-
-Common formats you might see:
-- Meet Mobile: "Boys 12&U 200 Meter Free" → "200 Free", "Boys 12&U 50 Meter Back" → "50 Back"
-- Heat sheets: Event number + distance + stroke
-- Results: Swimmer name, event, time, place
-
-Normalization rules:
-- "Meter" or "Yard" should be ignored for the event name (just use distance + stroke)
-- "Boys 12&U", "Girls 10&U", age group prefixes should be stripped from event name
-- "FR", "Free", "Freestyle" → "Free"
-- "BK", "Back", "Backstroke" → "Back"  
-- "BR", "Breast", "Breaststroke" → "Breast"
-- "FL", "Fly", "Butterfly" → "Fly"
-- "IM", "I.M.", "Individual Medley" → "IM"
-
-Return a JSON array with ALL times found:
-[{{
-  "swimmerName": "Full name from the image",
-  "eventName": "Normalized event name (e.g., '200 Free', '50 Back', '100 Fly')",
-  "distance": 200 (number extracted from event),
-  "stroke": "Freestyle" or "Backstroke" or "Breaststroke" or "Butterfly" or "Individual Medley",
-  "timeStr": "2:52.11" or "42.44" (exact time as shown),
-  "place": 10 (if shown, otherwise null),
-  "heat": null,
-  "lane": null
-}}]
-
-Critical instructions:
-1. Extract EVERY time visible in the image
-2. Normalize ALL event names to the standard format (strip age group prefixes, "Meter"/"Yard")
-3. Include the swimmer name as shown
-4. Times format: SS.XX for under a minute, M:SS.XX for over a minute
-5. Return ONLY the raw JSON array, no other text or markdown"""
-    
-    # Try Emergent LLM key with Claude first (supports vision), fall back to OpenAI
-    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-    
-    if EMERGENT_LLM_KEY:
-        try:
-            from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
-            
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"heat-sheet-{req.swimmerName or 'scan'}",
-                system_message="You are an expert at reading swim meet results from screenshots. Extract all times accurately. Return JSON only."
-            ).with_model("anthropic", "claude-sonnet-4-20250514")
-            
-            image_content = ImageContent(image_base64=req.imageData)
-            user_message = UserMessage(text=prompt, file_contents=[image_content])
-            
-            text = await chat.send_message(user_message)
-            
-            print(f"Heat sheet extraction (Claude) response length: {len(text)}")
-            print(f"Heat sheet extraction preview: {text[:500]}")
-            
-            json_match = re.search(r'\[.*\]', text, re.DOTALL)
-            if json_match:
-                try:
-                    results = json.loads(json_match.group(0))
-                    for r in results:
-                        r['eventName'] = normalize_event_name(r.get('eventName', ''), r.get('distance', 0))
-                        r['stroke'] = normalize_stroke_name(r.get('stroke', ''))
-                    print(f"Extracted {len(results)} times from heat sheet via Claude")
-                    return {"success": True, "times": results, "count": len(results)}
-                except json.JSONDecodeError as e:
-                    print(f"Claude JSON parse error: {e}")
-            else:
-                print(f"Claude response had no JSON array")
-        except Exception as e:
-            print(f"Claude heat sheet extraction failed: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    # Fallback to OpenAI
-    if not OPENAI_API_KEY:
-        return {"success": False, "times": [], "error": "AI service unavailable. Please try again later."}
-    
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{OPENAI_BASE_URL}/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": AI_VISION_MODEL,
-                "messages": [
-                    {"role": "user", "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:{req.mimeType};base64,{req.imageData}", "detail": "high"}}
-                    ]}
-                ],
-                "max_tokens": 4096,
-                "temperature": 0.1
-            },
-            timeout=90.0
-        )
-        
-        if response.status_code != 200:
-            error_detail = response.text
-            print(f"Heat sheet extraction failed: {response.status_code} - {error_detail[:500]}")
-            raise HTTPException(status_code=500, detail=f"Analysis failed: {error_detail}")
-        
-        data = response.json()
-        text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        
-        print(f"Heat sheet extraction response length: {len(text)}")
-        print(f"Heat sheet extraction preview: {text[:500]}")
-        
-        json_match = re.search(r'\[.*\]', text, re.DOTALL)
-        if json_match:
+        # 1. Orientation — phone photos of a portrait page often arrive landscape.
+        rotation = 0
+        try:
+            probe = img.copy()
+            probe.thumbnail((900, 900))
+            o = await _heat_vision_json(client, _b64_jpeg(probe, 80), HEAT_ORIENT_PROMPT,
+                                        AI_VISION_MODEL, max_tokens=8)
+            # The model may answer with bare "90" (not JSON) -> _heat_vision_json
+            # returns {'error': 'no JSON', 'raw': '90'}. Check raw first, then JSON.
+            hay = (o.get("raw") or "") + " " + json.dumps(o)
+            m = re.search(r"\b(0|90|180|270)\b", hay)
+            if m:
+                rotation = int(m.group(1))
+        except Exception as e:
+            print(f"orientation probe failed: {e}")
+        if rotation:
+            img = img.rotate(-rotation, expand=True)  # PIL rotates CCW
+            print(f"heat sheet: rotated {-rotation} deg")
+
+        # 2. Read overlapping grid tiles.
+        raw_rows = []
+        for idx, tile in enumerate(_tile_grid(img)):
+            res = await _heat_vision_json(client, _b64_jpeg(tile), HEAT_TILE_PROMPT, AI_VISION_MODEL)
+            if "error" in res:
+                print(f"heat tile {idx} failed: {res['error']}")
+                continue
+            for row in res.get("rows") or []:
+                if row.get("name"):
+                    raw_rows.append(row)
+        print(f"heat sheet: {len(raw_rows)} raw rows -> ", end="")
+
+        rows = _dedupe_heat_rows(raw_rows)
+        print(f"{len(rows)} unique")
+
+        # 2b. Event map — one full-page pass for the headers the tiles cut through.
+        def heat_key(s):
+            return re.sub(r"\s+", "", str(s or "")).lower()
+
+        missing_event = sum(1 for r in rows if not r.get("event"))
+        if missing_event:
             try:
-                results = json.loads(json_match.group(0))
-                
-                # Post-process to ensure event names are normalized
-                for r in results:
-                    r['eventName'] = normalize_event_name(r.get('eventName', ''), r.get('distance', 0))
-                    r['stroke'] = normalize_stroke_name(r.get('stroke', ''))
-                
-                print(f"Extracted {len(results)} times from heat sheet")
-                return {"success": True, "times": results, "count": len(results)}
-            except json.JSONDecodeError as e:
-                return {"success": False, "times": [], "error": f"Failed to parse results: {str(e)}"}
-        return {"success": False, "times": [], "error": "No times found in image"}
+                probe = img.copy()
+                probe.thumbnail((1500, 1500))
+                hm = await _heat_vision_json(client, _b64_jpeg(probe, 85), HEAT_MAP_PROMPT,
+                                             AI_VISION_MODEL, max_tokens=2000)
+                if not isinstance(hm, dict):
+                    hm = {}
+                heat_to_event = {}
+                for block in (hm.get("blocks") or []):
+                    ev = block.get("event")
+                    if not ev:
+                        continue
+                    for h in (block.get("heats") or []):
+                        heat_to_event.setdefault(heat_key(h), ev)
+                filled = 0
+                for r in rows:
+                    if not r.get("event"):
+                        ev = heat_to_event.get(heat_key(r.get("heat")))
+                        if ev:
+                            r["event"] = ev
+                            filled += 1
+                print(f"event map: {len(heat_to_event)} heats -> filled {filled}/{missing_event}")
+            except Exception as e:
+                print(f"event map pass failed: {e}")
+
+        # 2c. Last resort — inherit from a sibling in the same heat.
+        heat_event = {}
+        for r in rows:
+            h = heat_key(r.get("heat"))
+            if h and r.get("event"):
+                heat_event.setdefault(h, r["event"])
+        filled = 0
+        for r in rows:
+            h = heat_key(r.get("heat"))
+            if not r.get("event") and h in heat_event:
+                r["event"] = heat_event[h]
+                filled += 1
+        if filled:
+            print(f"filled {filled} remaining headers from heat siblings")
+
+    # 3. Shape into the app's contract.
+    results = []
+    for r in rows:
+        event_raw = r.get("event") or ""
+        distance = 0
+        m = re.search(r"\b(\d{2,4})\b", re.sub(r"#\s*\d+", " ", event_raw))
+        if m:
+            distance = int(m.group(1))
+        event_name = normalize_event_name(event_raw, distance) if event_raw else ""
+        results.append({
+            "swimmerName": r.get("name"),
+            "eventName": event_name,
+            "distance": distance,
+            "stroke": normalize_stroke_name(event_raw or r.get("name") or ""),
+            "timeStr": r.get("time"),
+            "place": None,
+            "heat": r.get("heat"),
+            "lane": r.get("lane"),
+            "age": r.get("age"),
+            "team": r.get("team"),
+        })
+
+    if not results:
+        return {"success": False, "times": [], "count": 0,
+                "error": "No swimmer rows could be read. Try a clearer, straight-on photo."}
+    return {"success": True, "times": results, "count": len(results)}
 
 def _canonical_stroke_short(text: str) -> str:
     """Map any stroke token to a short canonical form: Free/Back/Breast/Fly/IM."""
